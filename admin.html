@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>상호작용 - 관리자</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#08080f;--bg2:#0f0f1c;--bg3:#161626;--bg4:#1d1d30;
@@ -644,9 +645,86 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
   </div>
 </div>
 
-<script>const DB={
+<script>
+// ═══════════════════════════════════════════════════
+//  SUPABASE 설정
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL = 'https://berxifdazrsbnvlavlaq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_iJvkQHaIyAZj7vP4yC8Cvg_5pmPEmzG';
+
+let _sb = null;
+
+function initSB(){
+  if(!window.supabase)return;
+  try{_sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}
+  catch(e){console.warn('Supabase init failed:',e);}
+}
+
+async function syncToSB(k,v){
+  if(!_sb)return;
+  try{
+    let syncVal=v;
+    if(k==='applications') syncVal=(v||[]).map(a=>({...a,fileData:''}));
+    if(k==='mainMenuDefs') syncVal=(v||[]).map(m=>({...m,bg:''}));
+    await _sb.from('app_data').upsert({key:k,value:JSON.stringify(syncVal)});
+  }catch(e){console.warn('Supabase sync error:',k,e.message);}
+}
+
+async function loadFromSB(){
+  if(!_sb)return;
+  try{
+    showSBLoading(true);
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
+    const query=_sb.from('app_data').select('*');
+    const{data,error}=await Promise.race([query,timeout]);
+    if(error)throw error;
+    if(data){
+      data.forEach(row=>{
+        if(row.key==='applications'){
+          const local=DB.applications();
+          const remote=JSON.parse(row.value||'[]');
+          const merged=remote.map(rApp=>{
+            const lApp=local.find(l=>l.id===rApp.id);
+            return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
+          });
+          local.forEach(lApp=>{if(!merged.find(m=>m.id===lApp.id))merged.push(lApp);});
+          localStorage.setItem('sjt_applications',JSON.stringify(merged));
+        } else if(row.key==='mainMenuDefs'){
+          const local=DB.get('mainMenuDefs',null);
+          const remote=JSON.parse(row.value||'[]');
+          const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
+          localStorage.setItem('sjt_mainMenuDefs',JSON.stringify(merged));
+        } else {
+          localStorage.setItem('sjt_'+row.key,row.value);
+        }
+      });
+    }
+  }catch(e){
+    console.warn('Supabase 로드 실패, localStorage 사용:',e.message);
+  }finally{
+    showSBLoading(false);
+  }
+}
+
+function showSBLoading(show){
+  let el=document.getElementById('sb-loading');
+  if(!el){
+    el=document.createElement('div');
+    el.id='sb-loading';
+    el.style.cssText='position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;';
+    el.innerHTML='<div style="font-size:22px;color:var(--gold);letter-spacing:3px;">상호작용 관리자</div>'
+      +'<div style="font-size:13px;color:var(--txt2);">불러오는 중...</div>'
+      +'<div style="width:200px;height:2px;background:var(--bg3);border-radius:2px;overflow:hidden;">'
+      +'<div id="sb-bar" style="height:100%;background:var(--gold);width:0;transition:width 1.5s ease;border-radius:2px;"></div></div>';
+    document.body.appendChild(el);
+    setTimeout(()=>{const bar=document.getElementById('sb-bar');if(bar)bar.style.width='80%';},100);
+  }
+  el.style.display=show?'flex':'none';
+}
+
+const DB={
   get:(k,d=null)=>{try{const v=localStorage.getItem('sjt_'+k);return v!==null?JSON.parse(v):d;}catch{return d;}},
-  set:(k,v)=>{try{localStorage.setItem('sjt_'+k,JSON.stringify(v));return true;}catch{return false;}},
+  set:(k,v)=>{try{localStorage.setItem('sjt_'+k,JSON.stringify(v));if(k!=='auth')syncToSB(k,v);return true;}catch{return false;}},
   schedules:()=>DB.get('schedules',[]),
   saveSchedules:v=>DB.set('schedules',v),
   applications:()=>DB.get('applications',[]),
@@ -2648,12 +2726,21 @@ function handleHash(){
 checkExpiredFiles();
 
 // Start (admin)
-if(DB.isAdmin()){
-  history.replaceState({page:'admin-main',params:{}},'','#admin-main');
-  go('admin-main',{},false);
+function startAdmin(){
+  checkExpiredFiles();
+  if(DB.isAdmin()){
+    history.replaceState({page:'admin-main',params:{}},'','#admin-main');
+    go('admin-main',{},false);
+  } else {
+    history.replaceState({page:'admin-login',params:{}},'','#admin-login');
+    go('admin-login',{},false);
+  }
+}
+initSB();
+if(_sb){
+  loadFromSB().then(()=>startAdmin());
 } else {
-  history.replaceState({page:'admin-login',params:{}},'','#admin-login');
-  go('admin-login',{},false);
+  startAdmin();
 }
 
 </script>
