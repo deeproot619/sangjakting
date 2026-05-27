@@ -814,6 +814,23 @@ function go(page,params={},pushState=true){
 // ═══════════════════════════════════════════════════
 //  ADMIN SIDEBAR & TOPNAV
 // ═══════════════════════════════════════════════════
+// 일정의 질문 목록 가져오기 (스냅샷 우선)
+function getScheduleQuestions(scheduleId){
+  const sched=DB.schedules().find(s=>s.id===scheduleId);
+  if(sched&&sched.previewQuestions&&sched.previewQuestions.length>0){
+    return sched.previewQuestions;
+  }
+  return DB.previewQs().sort((a,b)=>a.order-b.order);
+}
+
+// 일정 날짜가 지났는지 확인
+function isScheduleExpired(s){
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const schedDate=new Date(s.year,s.month-1,s.day);
+  return schedDate<today;
+}
+
 function buildSidebar(pageNum,activePage){
   const items=[
     {label:'메인 관리',page:'admin-main-manage'},
@@ -1641,10 +1658,11 @@ function renderSchedTable(){
       <td>${s.order}</td>
       <td>${s.displayText}</td>
       <td>
-        <label class="toggle">
-          <input type="checkbox" ${s.isVisible?'checked':''} onchange="toggleSchedVisible('${s.id}',this.checked)">
+        <label class="toggle" title="${isScheduleExpired(s)?'지난 일정은 변경할 수 없습니다':''}">
+          <input type="checkbox" ${s.isVisible?'checked':''} ${isScheduleExpired(s)?'disabled':''} onchange="toggleSchedVisible('${s.id}',this.checked)">
           <div class="toggle-track"></div>
         </label>
+        ${isScheduleExpired(s)?'<span style="font-size:10px;color:var(--txt3);display:block;margin-top:2px;">종료됨</span>':''}
       </td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteSchedule('${s.id}')">삭제</button></td>
     </tr>`).join('');
@@ -1654,7 +1672,10 @@ function renderSchedTable(){
 function toggleSchedVisible(id,val){
   const scheds=DB.schedules();
   const s=scheds.find(x=>x.id===id);
-  if(s){s.isVisible=val;DB.saveSchedules(scheds);}
+  if(s){
+    if(isScheduleExpired(s)){toast('지난 일정은 변경할 수 없습니다.','error');return;}
+    s.isVisible=val;DB.saveSchedules(scheds);
+  }
 }
 
 function deleteSchedule(id){
@@ -1787,7 +1808,16 @@ function renderAPSchedSection(){
     <tr>
       <td>${s.order}</td>
       <td>${s.displayText}</td>
-      <td><label class="toggle"><input type="checkbox" ${s.isPreviewActive?'checked':''} onchange="togglePQSchedActive('${s.id}',this.checked)"><div class="toggle-track"></div></label></td>
+      <td style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <label class="toggle">
+          <input type="checkbox" ${s.isPreviewActive?'checked':''} ${isScheduleExpired(s)?'disabled':''} onchange="togglePQSchedActive('${s.id}',this.checked)">
+          <div class="toggle-track"></div>
+        </label>
+        ${isScheduleExpired(s)
+          ?'<span style="font-size:10px;color:var(--txt3);">종료됨</span>'
+          :`<button class="btn btn-secondary btn-sm" data-sid="${s.id}" onclick="applyQuestionSnapshot(this.dataset.sid)" style="font-size:11px;padding:4px 8px;">변경된 질문 적용</button>`
+        }
+      </td>
     </tr>`).join('');
   renderPagination('ap-sched-pagination',apSchedPage,scheds.length,SCHED_PER_PAGE,'apSchedPageChange');
 }
@@ -1828,7 +1858,7 @@ function renderAPContent(){
   const{scheduleId}=apState;
   const{gender,number}=apState.selected;
   const prev=DB.previews().find(p=>p.scheduleId===scheduleId&&p.gender===gender&&p.number===number);
-  const qs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  const qs=getScheduleQuestions(apState.scheduleId);
   let html=`<div class="card"><div class="flex-between mb16">
     <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">${gender}자 ${number}번 Preview</div>
     <div style="display:flex;gap:8px;">
@@ -1852,7 +1882,7 @@ function renderAPContent(){
 
 function toggleAPEdit(){
   const btn=document.getElementById('ap-edit-btn');
-  const qs=DB.previewQs();
+  const qs=getScheduleQuestions(apState.scheduleId);
   const isEditing=btn.textContent==='저장';
   if(isEditing){
     // Save
@@ -2102,11 +2132,15 @@ function renderPQSchedTable(){
     <tr>
       <td>${s.order}</td>
       <td>${s.displayText}</td>
-      <td>
+      <td style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <label class="toggle">
-          <input type="checkbox" ${s.isPreviewActive?'checked':''} onchange="togglePQSchedActive('${s.id}',this.checked)">
+          <input type="checkbox" ${s.isPreviewActive?'checked':''} ${isScheduleExpired(s)?'disabled':''} onchange="togglePQSchedActive('${s.id}',this.checked)">
           <div class="toggle-track"></div>
         </label>
+        ${isScheduleExpired(s)
+          ?'<span style="font-size:10px;color:var(--txt3);">종료됨</span>'
+          :`<button class="btn btn-secondary btn-sm" data-sid="${s.id}" onclick="applyQuestionSnapshot(this.dataset.sid)" style="font-size:11px;padding:4px 8px;">변경된 질문 적용</button>`
+        }
       </td>
     </tr>`).join('');
   renderPagination('pq-sched-pagination',pqSchedPage,scheds.length,SCHED_PER_PAGE,'initAdminPQSchedPage');
@@ -2117,7 +2151,26 @@ function initAdminPQSchedPage(p){pqSchedPage=p;renderPQSchedTable();}
 function togglePQSchedActive(id,val){
   const scheds=DB.schedules();
   const s=scheds.find(x=>x.id===id);
-  if(s){s.isPreviewActive=val;DB.saveSchedules(scheds);}
+  if(s){
+    if(isScheduleExpired(s)){toast('지난 일정은 변경할 수 없습니다.','error');return;}
+    s.isPreviewActive=val;
+    DB.saveSchedules(scheds);
+  }
+}
+
+// 질문 스냅샷 적용
+function applyQuestionSnapshot(id){
+  confirm2('정말 변경하시겠습니까?',function(){
+    const scheds=DB.schedules();
+    const s=scheds.find(x=>x.id===id);
+    if(s){
+      if(isScheduleExpired(s)){toast('지난 일정은 변경할 수 없습니다.','error');return;}
+      s.previewQuestions=DB.previewQs().sort((a,b)=>a.order-b.order)
+        .map(q=>({id:q.id,order:q.order,content:q.content}));
+      DB.saveSchedules(scheds);
+      toast('질문이 적용되었습니다.','success');
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════

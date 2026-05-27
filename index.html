@@ -728,6 +728,15 @@ const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-app
 
 let currentPage='main';
 
+// 일정의 질문 목록 가져오기 (스냅샷 우선)
+function getScheduleQuestions(scheduleId){
+  const sched=DB.schedules().find(s=>s.id===scheduleId);
+  if(sched&&sched.previewQuestions&&sched.previewQuestions.length>0){
+    return sched.previewQuestions;
+  }
+  return DB.previewQs().sort((a,b)=>a.order-b.order);
+}
+
 // 외부 링크 열기
 function openExtLink(url){
   if(!url){toast('등록된 링크가 없습니다.','error');return;}
@@ -1034,7 +1043,7 @@ function verifyWriter(){
 }
 
 function renderPWForm(){
-  const qs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  const qs=getScheduleQuestions(pwState.scheduleId);
   const area=document.getElementById('pw-form-area');
   if(qs.length===0){area.innerHTML='<div class="empty-state">등록된 질문이 없습니다.</div>';area.style.display='block';return;}
   let html='<div class="card-hd">Preview 작성</div>';
@@ -1064,7 +1073,7 @@ function loadPrevPreview(){
 
 function savePreview(){
   if(!pwState.verifiedApp){toast('작성자 확인이 필요합니다.','error');return;}
-  const qs=DB.previewQs();
+  const qs=getScheduleQuestions(pwState.scheduleId);
   const answers={};
   let hasAll=true;
   qs.forEach(q=>{
@@ -1131,7 +1140,7 @@ function selectPVPerson(gender,number){
   pvState.selected={gender,number};
   renderPVGrid();
   const prev=DB.previews().find(p=>p.scheduleId===pvState.scheduleId&&p.gender===gender&&p.number===number);
-  const qs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  const qs=getScheduleQuestions(pvState.scheduleId);
   const area=document.getElementById('pv-content-area');
   let html=`<div class="card"><div class="card-hd">${gender}자 ${number}번</div>`;
   if(!prev||qs.length===0){
