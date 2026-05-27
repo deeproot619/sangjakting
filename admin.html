@@ -1,0 +1,2483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>상호작용 - 관리자</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08080f;--bg2:#0f0f1c;--bg3:#161626;--bg4:#1d1d30;
+  --bd:rgba(255,255,255,0.07);--bd2:rgba(255,255,255,0.14);
+  --gold:#c9a96e;--gold2:#e8c88a;--gold3:rgba(201,169,110,0.12);
+  --txt:#f0f0f8;--txt2:#8a8aaa;--txt3:#4a4a68;
+  --ok:#52c98a;--err:#e07070;--warn:#e0a855;
+  --r:12px;--r2:8px;--r3:6px;
+  --sh:0 8px 32px rgba(0,0,0,0.6);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;font-size:14px;line-height:1.6;}
+.page{display:none;min-height:100vh;}
+.page.active{display:block;}
+a{text-decoration:none;color:inherit;}
+button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--gold);}
+
+/* ── PUBLIC HEADER ── */
+.pub-header{background:var(--bg2);border-bottom:1px solid var(--bd);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.site-logo{font-family:'Noto Serif KR',serif;font-size:22px;font-weight:600;color:var(--gold);letter-spacing:3px;cursor:pointer;}
+.admin-link{font-size:12px;color:var(--txt3);border:1px solid var(--bd);border-radius:var(--r3);padding:5px 12px;transition:all .2s;}
+.admin-link:hover{color:var(--gold);border-color:var(--gold);}
+.back-btn{font-size:12px;color:var(--txt3);border:1px solid var(--bd);border-radius:var(--r3);padding:5px 12px;transition:all .2s;background:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+.back-btn:hover{color:var(--gold);border-color:var(--gold);}
+.pub-header-nav{display:flex;align-items:center;gap:8px;}
+
+/* ── ADMIN LAYOUT ── */
+.admin-wrap{display:flex;min-height:100vh;}
+.admin-sidebar{width:210px;background:var(--bg2);border-right:1px solid var(--bd);padding:0;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sidebar-logo{font-family:'Noto Serif KR',serif;font-size:17px;font-weight:600;color:var(--gold);padding:20px 18px 16px;border-bottom:1px solid var(--bd);letter-spacing:2px;}
+.sidebar-label{font-size:10px;color:var(--txt3);padding:14px 18px 6px;text-transform:uppercase;letter-spacing:1.5px;}
+.sidebar-link{display:block;padding:9px 18px;color:var(--txt2);font-size:13px;transition:all .15s;border-left:3px solid transparent;cursor:pointer;}
+.sidebar-link:hover{background:var(--bg3);color:var(--txt);}
+.sidebar-link.active{background:var(--bg3);color:var(--gold);border-left-color:var(--gold);}
+.sidebar-logout{margin-top:auto;padding:16px 18px;border-top:1px solid var(--bd);}
+.admin-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.admin-topnav{background:var(--bg2);border-bottom:1px solid var(--bd);padding:10px 20px;display:flex;gap:4px;overflow-x:auto;flex-shrink:0;}
+.admin-topnav a{color:var(--txt3);font-size:12px;padding:5px 10px;border-radius:var(--r3);white-space:nowrap;transition:all .15s;}
+.admin-topnav a:hover{background:var(--bg3);color:var(--txt);}
+.admin-content{flex:1;padding:28px 32px;overflow-y:auto;}
+
+/* ── PAGE TITLE ── */
+.page-title{font-family:'Noto Serif KR',serif;font-size:24px;font-weight:600;color:var(--gold);margin-bottom:28px;padding-bottom:14px;border-bottom:1px solid var(--bd);}
+.section-hd{font-size:15px;font-weight:600;color:var(--txt);margin-bottom:14px;margin-top:24px;}
+
+/* ── CONTAINER ── */
+.container{max-width:760px;margin:0 auto;padding:28px 24px;}
+
+/* ── CARD ── */
+.card{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:22px;margin-bottom:16px;}
+.card-hd{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--bd);}
+
+/* ── FORM ── */
+.form-group{margin-bottom:14px;}
+.form-label{display:block;font-size:12px;color:var(--txt2);margin-bottom:5px;}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r2);padding:9px 13px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:14px;transition:border-color .2s;outline:none;-webkit-appearance:none;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--gold);}
+.form-input::placeholder,.form-textarea::placeholder{color:var(--txt3);}
+.form-select option{background:var(--bg3);}
+.form-textarea{resize:vertical;min-height:80px;}
+.form-input:disabled,.form-textarea:disabled,.form-select:disabled{opacity:.4;cursor:not-allowed;}
+.form-input[readonly]{cursor:pointer;}
+.input-row{display:flex;gap:10px;align-items:flex-end;}
+.input-row .form-group{flex:1;margin-bottom:0;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 20px;border-radius:var(--r2);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all .2s;white-space:nowrap;}
+.btn-primary{background:var(--gold);color:#160f00;}
+.btn-primary:hover{background:var(--gold2);}
+.btn-primary:disabled{background:var(--bg4);color:var(--txt3);cursor:not-allowed;}
+.btn-secondary{background:var(--bg4);color:var(--txt);border:1px solid var(--bd);}
+.btn-secondary:hover{border-color:var(--bd2);background:var(--bg3);}
+.btn-danger{background:rgba(224,112,112,.15);color:var(--err);border:1px solid rgba(224,112,112,.3);}
+.btn-danger:hover{background:rgba(224,112,112,.25);}
+.btn-success{background:rgba(82,201,138,.15);color:var(--ok);border:1px solid rgba(82,201,138,.3);}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:var(--r3);}
+.btn-full{width:100%;}
+
+/* ── GENDER ── */
+.gender-group{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.gender-btn{padding:13px;border:2px solid var(--bd);border-radius:var(--r2);background:var(--bg4);color:var(--txt2);font-size:15px;font-weight:500;cursor:pointer;transition:all .2s;text-align:center;font-family:'Noto Sans KR',sans-serif;}
+.gender-btn:hover{border-color:var(--bd2);color:var(--txt);}
+.gender-btn.selected{border-color:var(--gold);background:var(--gold3);color:var(--gold);}
+
+/* ── MENU GRID ── */
+.menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px;}
+.menu-item{aspect-ratio:1;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .22s;color:var(--txt2);font-size:13px;font-weight:500;text-align:center;padding:14px 8px;}
+.menu-item:hover{background:var(--bg4);border-color:var(--gold);color:var(--gold);transform:translateY(-3px);}
+.menu-icon{font-size:26px;line-height:1;}
+
+/* ── SCHEDULE DROPDOWN ── */
+.dropdown-wrap{position:relative;}
+.dropdown-trigger{width:100%;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r2);padding:9px 13px;color:var(--txt);font-size:14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:border-color .2s;}
+.dropdown-trigger:hover{border-color:var(--bd2);}
+.dropdown-trigger.open{border-color:var(--gold);}
+.dropdown-arrow{color:var(--txt3);font-size:10px;transition:transform .2s;}
+.dropdown-trigger.open .dropdown-arrow{transform:rotate(180deg);}
+.dropdown-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r2);max-height:280px;overflow-y:auto;z-index:200;display:none;box-shadow:var(--sh);}
+.dropdown-menu.open{display:block;}
+.dropdown-item{padding:10px 14px;cursor:pointer;font-size:14px;color:var(--txt);transition:background .15s;}
+.dropdown-item:hover{background:var(--bg4);color:var(--gold);}
+.dropdown-empty{padding:14px;color:var(--txt3);font-size:13px;text-align:center;}
+
+/* ── NUMBER GRID ── */
+.num-section{margin-bottom:16px;}
+.num-section-title{font-size:12px;color:var(--txt3);margin-bottom:8px;font-weight:500;}
+.number-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-bottom:6px;}
+.num-btn{padding:10px 4px;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r2);cursor:pointer;font-size:11px;color:var(--txt2);transition:all .18s;text-align:center;font-family:'Noto Sans KR',sans-serif;}
+.num-btn:hover{border-color:var(--gold);color:var(--gold);}
+.num-btn.selected{border-color:var(--gold);background:var(--gold3);color:var(--gold);font-weight:600;}
+.num-btn.taken{background:var(--bg2);border-color:var(--bd);color:var(--txt3);cursor:not-allowed;opacity:.35;}
+
+/* ── CHECKBOXES ── */
+.checks-area{background:var(--bg4);border-radius:var(--r2);padding:4px 14px;}
+.check-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--bd);}
+.check-row:last-child{border-bottom:none;}
+.check-row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;}
+.check-label{font-size:13px;color:var(--txt2);flex:1;}
+.check-label.clickable{color:var(--gold);cursor:pointer;text-decoration:underline;}
+
+/* ── FILE UPLOAD ── */
+.file-area{border:2px dashed var(--bd);border-radius:var(--r2);padding:18px 14px;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
+.file-area:hover{border-color:var(--gold);}
+.file-area.has-file{border-color:var(--ok);border-style:solid;}
+.file-area input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.file-area-txt{font-size:13px;color:var(--txt3);}
+.file-area.has-file .file-area-txt{color:var(--ok);}
+.file-icon{font-size:22px;margin-bottom:6px;}
+
+/* ── PERSON GRID ── */
+.person-section{margin-bottom:6px;}
+.person-section-title{font-size:12px;color:var(--txt3);margin-bottom:7px;font-weight:500;}
+.person-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:4px;}
+.person-btn{padding:9px 4px;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r2);cursor:pointer;font-size:11px;color:var(--txt2);transition:all .18s;text-align:center;font-family:'Noto Sans KR',sans-serif;}
+.person-btn:hover{border-color:var(--gold);color:var(--gold);}
+.person-btn.active{border-color:var(--gold);background:var(--gold3);color:var(--gold);font-weight:600;}
+.person-btn.empty{opacity:.3;}
+
+/* ── PREVIEW CONTENT ── */
+.preview-content{background:var(--bg4);border-radius:var(--r2);padding:18px;margin-top:14px;}
+.pv-q{font-size:16px;color:var(--gold);font-weight:600;margin-bottom:4px;margin-top:16px;}
+.pv-q:first-child{margin-top:0;}
+.pv-a{font-size:14px;color:#ffffff;line-height:1.65;}
+.pv-empty{text-align:center;padding:24px;color:var(--txt3);font-size:13px;}
+
+/* ── REVIEW CARDS ── */
+.review-card{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:18px;margin-bottom:12px;}
+.review-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--bd);}
+.review-who{font-size:14px;font-weight:600;color:var(--gold);}
+.review-when{font-size:11px;color:var(--txt3);}
+.rv-q{font-size:15px;color:var(--gold);font-weight:600;margin-bottom:4px;margin-top:14px;}
+.rv-q:first-child{margin-top:0;}
+.rv-a{font-size:14px;color:#ffffff;}
+
+/* ── FAQ ── */
+.faq-item{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+.faq-q{padding:16px 18px;font-size:14px;font-weight:500;color:var(--txt);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .15s;}
+.faq-q:hover{background:var(--bg4);}
+.faq-qmark{color:var(--gold);font-weight:700;margin-right:8px;font-size:15px;}
+.faq-chevron{color:var(--txt3);font-size:12px;transition:transform .2s;flex-shrink:0;}
+.faq-q.open .faq-chevron{transform:rotate(180deg);}
+.faq-a{padding:0 18px;font-size:13px;color:var(--txt2);line-height:1.7;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s;}
+.faq-a.open{max-height:500px;padding:0 18px 16px;}
+
+/* ── TABLE ── */
+.data-table{width:100%;border-collapse:collapse;font-size:13px;}
+.data-table th{background:var(--bg4);color:var(--txt2);font-weight:500;padding:9px 11px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap;}
+.data-table td{padding:9px 11px;border-bottom:1px solid var(--bd);color:var(--txt);vertical-align:middle;}
+.data-table tbody tr:last-child td{border-bottom:none;}
+.data-table tbody tr:hover td{background:var(--bg4);}
+.table-wrap{overflow-x:auto;border-radius:var(--r2);border:1px solid var(--bd);}
+.table-link{color:var(--gold);cursor:pointer;font-weight:500;}
+.table-link:hover{text-decoration:underline;}
+
+/* ── PAGINATION ── */
+.pagination{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:18px;flex-wrap:wrap;}
+.pg-btn{min-width:30px;height:30px;padding:0 7px;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r3);color:var(--txt2);font-size:13px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans KR',sans-serif;}
+.pg-btn:hover{border-color:var(--bd2);color:var(--txt);}
+.pg-btn.active{background:var(--gold);border-color:var(--gold);color:#160f00;font-weight:600;}
+.pg-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* ── TOGGLE ── */
+.toggle{position:relative;display:inline-block;width:38px;height:20px;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-track{position:absolute;cursor:pointer;inset:0;background:var(--bg4);border:1px solid var(--bd2);border-radius:20px;transition:.25s;}
+.toggle-track:before{position:absolute;content:"";height:14px;width:14px;left:2px;bottom:2px;background:var(--txt3);border-radius:50%;transition:.25s;}
+.toggle input:checked+.toggle-track{background:rgba(201,169,110,.25);border-color:var(--gold);}
+.toggle input:checked+.toggle-track:before{background:var(--gold);transform:translateX(18px);}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);padding:26px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:var(--sh);}
+.modal-title{font-family:'Noto Serif KR',serif;font-size:19px;font-weight:600;color:var(--gold);margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--bd);}
+.modal-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--txt2);font-size:18px;cursor:pointer;padding:4px;line-height:1;}
+.modal-close:hover{color:var(--txt);}
+
+/* ── CONFIRM ── */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:1100;padding:20px;}
+.confirm-overlay.open{display:flex;}
+.confirm-box{background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);padding:28px;max-width:340px;width:100%;text-align:center;box-shadow:var(--sh);}
+.confirm-msg{font-size:15px;color:var(--txt);margin-bottom:22px;line-height:1.65;}
+.confirm-btns{display:flex;gap:10px;justify-content:center;}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;top:18px;right:18px;z-index:2000;display:flex;flex-direction:column;gap:7px;pointer-events:none;}
+.toast{background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r2);padding:11px 18px;font-size:13px;color:var(--txt);box-shadow:var(--sh);animation:toast-in .3s ease;min-width:190px;pointer-events:all;}
+.toast.success{border-left:4px solid var(--ok);}
+.toast.error{border-left:4px solid var(--err);}
+.toast.info{border-left:4px solid var(--gold);}
+@keyframes toast-in{from{transform:translateX(110%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+/* ── TOP BTN ── */
+.top-btn{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--bd2);border-radius:20px;color:var(--txt2);padding:7px 20px;font-size:12px;cursor:pointer;transition:all .2s;z-index:100;display:none;font-family:'Noto Sans KR',sans-serif;}
+.top-btn.visible{display:block;}
+.top-btn:hover{color:var(--gold);border-color:var(--gold);}
+
+/* ── DATE PICKER MODAL ── */
+.datepick-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:900;padding:20px;}
+.datepick-modal.open{display:flex;}
+.datepick-box{background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);padding:24px;max-width:360px;width:100%;box-shadow:var(--sh);}
+.datepick-title{font-size:15px;font-weight:600;color:var(--txt);margin-bottom:16px;text-align:center;}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cal-nav button{background:none;border:none;color:var(--txt2);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:var(--r3);transition:all .15s;}
+.cal-nav button:hover{background:var(--bg4);color:var(--gold);}
+.cal-month{font-size:15px;font-weight:600;color:var(--txt);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-dow{text-align:center;font-size:11px;color:var(--txt3);padding:4px 0;}
+.cal-day{text-align:center;padding:7px 4px;border-radius:var(--r3);cursor:pointer;font-size:13px;color:var(--txt2);transition:all .15s;}
+.cal-day:hover{background:var(--bg4);color:var(--gold);}
+.cal-day.today{color:var(--gold);font-weight:600;}
+.cal-day.selected{background:var(--gold);color:#160f00;font-weight:600;}
+.cal-day.disabled{color:var(--txt3);cursor:not-allowed;opacity:.3;}
+.cal-day.empty{pointer-events:none;}
+.time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:4px;}
+.time-btn{padding:9px 4px;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r3);cursor:pointer;font-size:13px;color:var(--txt2);transition:all .18s;text-align:center;font-family:'Noto Sans KR',sans-serif;}
+.time-btn:hover{border-color:var(--gold);color:var(--gold);}
+.time-btn.selected{background:var(--gold3);border-color:var(--gold);color:var(--gold);font-weight:600;}
+.datepick-step{display:none;}
+.datepick-step.active{display:block;}
+.datepick-back{background:none;border:none;color:var(--txt3);font-size:12px;cursor:pointer;margin-bottom:12px;padding:0;font-family:'Noto Sans KR',sans-serif;}
+.datepick-back:hover{color:var(--gold);}
+
+/* ── LOGIN PAGE ── */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;}
+.login-card{background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r);padding:40px 36px;width:100%;max-width:340px;text-align:center;box-shadow:var(--sh);}
+.login-logo{font-family:'Noto Serif KR',serif;font-size:28px;font-weight:600;color:var(--gold);margin-bottom:6px;letter-spacing:4px;}
+.login-sub{font-size:12px;color:var(--txt3);margin-bottom:32px;}
+
+/* ── ADMIN MAIN GRID ── */
+.admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
+.admin-card-item{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:22px 16px;text-align:center;cursor:pointer;transition:all .2s;color:var(--txt2);}
+.admin-card-item:hover{background:var(--bg4);border-color:var(--gold);color:var(--gold);transform:translateY(-2px);}
+.admin-card-icon{font-size:28px;margin-bottom:8px;}
+.admin-card-label{font-size:13px;font-weight:500;}
+
+/* ── RESERVATION METHOD ── */
+.res-part{background:var(--bg4);border-radius:var(--r2);padding:16px;margin-bottom:12px;position:relative;}
+.res-part-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.res-part-title{font-size:13px;font-weight:600;color:var(--txt2);}
+.res-content{font-size:14px;color:var(--txt);white-space:pre-line;line-height:1.7;text-align:center;}
+.account-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
+.account-number{font-size:18px;font-weight:600;color:var(--gold);letter-spacing:1px;}
+.copy-btn{padding:4px 12px;border:1px solid var(--gold);background:var(--gold3);color:var(--gold);border-radius:var(--r3);font-size:12px;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
+.copy-btn:hover{background:var(--gold);color:#160f00;}
+
+/* ── MISC ── */
+.divider{border:none;border-top:1px solid var(--bd);margin:20px 0;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;}
+.badge-m{background:rgba(80,130,220,.18);color:#7ab0f0;}
+.badge-f{background:rgba(220,100,130,.18);color:#f090b0;}
+.badge-on{background:rgba(82,201,138,.18);color:var(--ok);}
+.empty-state{text-align:center;padding:40px 20px;color:var(--txt3);font-size:14px;}
+.text-gold{color:var(--gold);}
+.text-muted{color:var(--txt2);}
+.text-sm{font-size:12px;}
+.text-ok{color:var(--ok);}
+.text-err{color:var(--err);}
+.mt8{margin-top:8px;}
+.mt16{margin-top:16px;}
+.mt24{margin-top:24px;}
+.mb8{margin-bottom:8px;}
+.mb16{margin-bottom:16px;}
+.flex{display:flex;}
+.flex-between{display:flex;justify-content:space-between;align-items:center;}
+.flex-center{display:flex;align-items:center;}
+.gap8{gap:8px;}
+.gap12{gap:12px;}
+
+@media(max-width:768px){
+  .admin-sidebar{display:none;}
+  .admin-content{padding:18px 14px;}
+  .menu-grid{grid-template-columns:repeat(3,1fr);}
+  .number-grid{grid-template-columns:repeat(4,1fr);}
+  .person-grid{grid-template-columns:repeat(4,1fr);}
+  .container{padding:18px 14px;}
+}
+</style>
+</head>
+<body>
+<!-- ────── GLOBAL ELEMENTS ────── -->
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p class="confirm-msg" id="confirmMsg">정말 삭제하시겠습니까?</p>
+    <div class="confirm-btns">
+      <button class="btn btn-danger" id="confirmYes">예</button>
+      <button class="btn btn-secondary" id="confirmNo">아니오</button>
+    </div>
+  </div>
+</div>
+<div class="datepick-modal" id="datePickModal">
+  <div class="datepick-box">
+    <div class="datepick-step active" id="dpStep1">
+      <div class="datepick-title">날짜 선택</div>
+      <div class="cal-nav">
+        <button id="calPrev">‹</button>
+        <span class="cal-month" id="calMonthLabel"></span>
+        <button id="calNext">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <div class="datepick-step" id="dpStep2">
+      <button class="datepick-back" id="dpBack">← 날짜 다시 선택</button>
+      <div class="datepick-title" id="dpSelectedDate"></div>
+      <div style="font-size:13px;color:var(--txt2);margin-bottom:12px;">시간을 선택하세요</div>
+      <div class="time-grid" id="timeGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 8: ADMIN LOGIN ────── -->
+<div class="page" id="page-admin-login">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">상호작용</div>
+      <div class="login-sub">관리자 페이지</div>
+      <div class="form-group" style="text-align:left;">
+        <label class="form-label">비밀번호</label>
+        <input class="form-input" type="password" id="login-pw" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div id="login-err" class="text-err text-sm mb8" style="display:none;">비밀번호가 올바르지 않습니다.</div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 9: ADMIN MAIN ────── -->
+<div class="page" id="page-admin-main">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-9"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-9"></div>
+      <div class="admin-content">
+        <div class="page-title">관리자 메인</div>
+        <div class="admin-grid" id="admin-main-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────── PAGE: ADMIN MAIN MANAGE ────── -->
+<div class="page" id="page-admin-main-manage">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-mm"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-mm"></div>
+      <div class="admin-content">
+        <div class="page-title">메인 관리</div>
+        <div class="card">
+          <div class="card-hd">메인 페이지 메뉴 아이콘 관리</div>
+          <div style="font-size:12px;color:var(--txt2);margin-bottom:14px;">각 항목의 아이콘 내 글씨와 배경 사진을 수정할 수 있습니다.</div>
+          <div id="mm-menu-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 10: ADMIN SCHEDULES ────── -->
+<div class="page" id="page-admin-schedules">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-10"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-10"></div>
+      <div class="admin-content">
+        <div class="page-title">일정 관리</div>
+        <div class="card">
+          <div class="card-hd">일정 등록</div>
+          <div class="input-row">
+            <div class="form-group">
+              <input class="form-input" id="sched-input" placeholder="날짜와 시간을 선택하세요" readonly onclick="openDatePick()">
+            </div>
+            <button class="btn btn-primary" onclick="addSchedule()">등록</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">일정 등록 현황</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>구분</th><th>일정 현황</th><th>노출 활성화</th><th>삭제</th></tr></thead>
+              <tbody id="sched-tbody"></tbody>
+            </table>
+          </div>
+          <div id="sched-pagination"></div>
+          <div id="sched-empty" class="empty-state" style="display:none;">등록된 일정이 없습니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 11: ADMIN APPLICANTS ────── -->
+<div class="page" id="page-admin-applicants">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-11"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-11"></div>
+      <div class="admin-content">
+        <div class="page-title">신청자 현황 관리</div>
+        <div class="card">
+          <div class="flex-between">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">일정 선택</div>
+            <button class="btn btn-success btn-sm" onclick="downloadApplicantsExcel()">📥 전체 엑셀 다운로드</button>
+          </div>
+          <div class="dropdown-wrap mt8">
+            <div class="dropdown-trigger" id="app-schedule-btn" onclick="toggleDrop('app-schedule')">
+              <span id="app-schedule-val">일정을 선택해주세요.</span>
+              <span class="dropdown-arrow">▼</span>
+            </div>
+            <div class="dropdown-menu" id="app-schedule-menu"></div>
+          </div>
+        </div>
+        <div id="applicants-content"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 12: ADMIN PREVIEW ────── -->
+<div class="page" id="page-admin-preview">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-12"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-12"></div>
+      <div class="admin-content">
+        <div class="page-title">Preview 관리</div>
+        <div class="card">
+          <div class="card-hd">일정 등록 현황 (Preview 작성 활성화)</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>구분</th><th>일정 현황</th><th>활성화</th></tr></thead>
+              <tbody id="ap-sched-tbody"></tbody>
+            </table>
+          </div>
+          <div id="ap-sched-pagination"></div>
+          <div id="ap-sched-empty" class="empty-state" style="display:none;">등록된 일정이 없습니다.</div>
+        </div>
+        <div class="card">
+          <div class="flex-between mb16">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">질문 목록</div>
+            <button class="btn btn-primary btn-sm" onclick="addPQ()">+ 추가</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>번호</th><th>질문 내용</th><th>수정/저장</th><th>삭제</th></tr></thead>
+              <tbody id="pq-tbody"></tbody>
+            </table>
+          </div>
+          <div id="pq-empty" class="empty-state" style="display:none;">등록된 질문이 없습니다.</div>
+        </div>
+        <div class="card">
+          <div class="card-hd">Preview 내용 관리</div>
+          <div class="dropdown-wrap">
+            <div class="dropdown-trigger" id="ap-schedule-btn" onclick="toggleDrop('ap-schedule')">
+              <span id="ap-schedule-val">일정을 선택해주세요.</span>
+              <span class="dropdown-arrow">▼</span>
+            </div>
+            <div class="dropdown-menu" id="ap-schedule-menu"></div>
+          </div>
+        </div>
+        <div id="ap-people-area" style="display:none;">
+          <div class="card">
+            <div class="person-section">
+              <div class="person-section-title">남자</div>
+              <div class="person-grid" id="ap-male-grid"></div>
+            </div>
+            <div class="person-section">
+              <div class="person-section-title">여자</div>
+              <div class="person-grid" id="ap-female-grid"></div>
+            </div>
+          </div>
+          <div id="ap-content-area"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<button class="top-btn" id="ap-top-btn" onclick="scrollToTop()">TOP ↑</button>
+
+<!-- ────── PAGE 13: ADMIN REVIEWS ────── -->
+<div class="page" id="page-admin-reviews">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-13"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-13"></div>
+      <div class="admin-content">
+        <div class="page-title">Review 관리</div>
+        <!-- 1. 질문 목록 -->
+        <div class="card">
+          <div class="flex-between mb16">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">질문 목록</div>
+            <button class="btn btn-primary btn-sm" onclick="addRQ()">+ 추가</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>번호</th><th>질문 내용</th><th>수정/저장</th><th>삭제</th></tr></thead>
+              <tbody id="rq-tbody"></tbody>
+            </table>
+          </div>
+          <div id="rq-empty" class="empty-state" style="display:none;">등록된 질문이 없습니다.</div>
+        </div>
+        <!-- 2. 공지 내용 -->
+        <div class="card">
+          <div class="card-hd">공지 내용</div>
+          <div id="rq-notice-display" class="res-content mb8"></div>
+          <div id="rq-notice-edit" style="display:none;">
+            <textarea class="form-textarea" id="rq-notice-input" style="min-height:80px;"></textarea>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="rq-notice-btn" onclick="toggleRQNotice()">수정</button>
+        </div>
+        <!-- 3. 리뷰 관리 (삭제) -->
+        <div class="card">
+          <div class="card-hd">리뷰 관리</div>
+          <div id="ar-list"></div>
+          <div id="ar-pagination"></div>
+          <div id="ar-empty" class="empty-state" style="display:none;">작성된 리뷰가 없습니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 14: ADMIN INSTAGRAM ────── -->
+<div class="page" id="page-admin-instagram">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-14"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-14"></div>
+      <div class="admin-content">
+        <div class="page-title">Instagram 링크 관리</div>
+        <div class="card">
+          <div class="card-hd">링크 등록</div>
+          <div class="input-row">
+            <div class="form-group">
+              <input class="form-input" id="ig-input" placeholder="인스타그램 링크 주소를 입력하세요">
+            </div>
+            <button class="btn btn-primary" onclick="saveInstagram()">등록</button>
+          </div>
+          <div id="ig-msg" class="text-sm mt8" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 15: ADMIN RESERVATION METHOD ────── -->
+<div class="page" id="page-admin-res">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-15"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-15"></div>
+      <div class="admin-content">
+        <div class="page-title">예약 신청 방법 관리</div>
+        <div class="card" id="res-part1-card"></div>
+        <div class="card" id="res-part2-card"></div>
+        <div class="card" id="res-part3-card"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ────── PAGE 18: ADMIN FAQ ────── -->
+<div class="page" id="page-admin-faq">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-18"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-18"></div>
+      <div class="admin-content">
+        <div class="page-title">FAQ 관리</div>
+        <div class="card">
+          <div class="flex-between mb16">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">FAQ 항목</div>
+            <button class="btn btn-primary btn-sm" onclick="addFAQ()">+ 추가</button>
+          </div>
+          <div id="faq-admin-list"></div>
+          <div id="faq-admin-empty" class="empty-state" style="display:none;">등록된 FAQ가 없습니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>const DB={
+  get:(k,d=null)=>{try{const v=localStorage.getItem('sjt_'+k);return v!==null?JSON.parse(v):d;}catch{return d;}},
+  set:(k,v)=>{try{localStorage.setItem('sjt_'+k,JSON.stringify(v));return true;}catch{return false;}},
+  schedules:()=>DB.get('schedules',[]),
+  saveSchedules:v=>DB.set('schedules',v),
+  applications:()=>DB.get('applications',[]),
+  saveApplications:v=>DB.set('applications',v),
+  previews:()=>DB.get('previews',[]),
+  savePreviews:v=>DB.set('previews',v),
+  reviews:()=>DB.get('reviews',[]),
+  saveReviews:v=>DB.set('reviews',v),
+  instagram:()=>DB.get('instagram',''),
+  saveInstagram:v=>DB.set('instagram',v),
+  resMethod:()=>DB.get('resMethod',{
+    part1:'★ 꼭 확인해주세요★\n인스타그램 계정을 팔로우한 뒤,\n아래 내용을 DM으로 보내주세요.\n보내주지 않을 시 입장이 제한될 수 있습니다.\n입금자명 + 참여 날짜\nEx) 김상작, 6월6일(토) 18:00',
+    bankName:'카카오뱅크',accountHolder:'천*찬',accountNumber:'3333370720655',
+    part3:'신청 조건에 부합하지 않거나\n신청 인원이 초과된 경우\n신청이 취소될 수 있습니다.'
+  }),
+  saveResMethod:v=>DB.set('resMethod',v),
+  previewQs:()=>DB.get('previewQs',[
+    {id:'pq1',order:1,content:'평소 나의 취미는?'},
+    {id:'pq2',order:2,content:'나의 연애 스타일은?'}
+  ]),
+  savePreviewQs:v=>DB.set('previewQs',v),
+  reviewQs:()=>DB.get('reviewQs',[
+    {id:'rq1',order:1,content:'참여 후 소감을 남겨주세요.'}
+  ]),
+  saveReviewQs:v=>DB.set('reviewQs',v),
+  reviewNotice:()=>DB.get('reviewNotice','리뷰를 작성해주신 분들께 드리는 선물은 인스타 공지를 확인해 주세요'),
+  saveReviewNotice:v=>DB.set('reviewNotice',v),
+  faq:()=>DB.get('faq',[
+    {id:'f1',order:1,question:'상작팅 타임테이블은 어떻게 되나요?',answer:''},
+    {id:'f2',order:2,question:'매칭 결과는 소개팅 후 언제 알려주시나요?',answer:''}
+  ]),
+  saveFaq:v=>DB.set('faq',v),
+  isAdmin:()=>DB.get('auth',false),
+  setAdmin:v=>DB.set('auth',v),
+};
+
+// ═══════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+const DAYS=['일','월','화','수','목','금','토'];
+function getDayKr(y,m,d){return DAYS[new Date(y,m-1,d).getDay()];}
+function formatScheduleText(y,m,d,h,min){
+  const dow=getDayKr(y,m,d);
+  const hh=String(h).padStart(2,'0');
+  const mm=String(min).padStart(2,'0');
+  return `${y}년 ${m}월 ${d}일(${dow}), ${hh}:${mm}`;
+}
+function formatDateShort(y,m,d){
+  const dow=getDayKr(y,m,d);
+  return `${m}월 ${d}일(${dow})`;
+}
+
+// toast
+function toast(msg,type='info'){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.textContent=msg;
+  w.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+// confirm dialog
+let _confirmCb=null;
+function confirm2(msg,cb){
+  document.getElementById('confirmMsg').textContent=msg;
+  document.getElementById('confirmOverlay').classList.add('open');
+  _confirmCb=cb;
+}
+document.getElementById('confirmYes').onclick=()=>{
+  document.getElementById('confirmOverlay').classList.remove('open');
+  if(_confirmCb)_confirmCb();
+  _confirmCb=null;
+};
+document.getElementById('confirmNo').onclick=()=>{
+  document.getElementById('confirmOverlay').classList.remove('open');
+  _confirmCb=null;
+};
+
+function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
+
+// dropdown open/close
+function toggleDrop(id){
+  const btn=document.getElementById(id+'-btn');
+  const menu=document.getElementById(id+'-menu');
+  const isOpen=menu.classList.contains('open');
+  // close all
+  document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open'));
+  document.querySelectorAll('.dropdown-trigger.open').forEach(b=>b.classList.remove('open'));
+  if(!isOpen){menu.classList.add('open');btn.classList.add('open');}
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.dropdown-wrap')){
+    document.querySelectorAll('.dropdown-menu.open').forEach(m=>m.classList.remove('open'));
+    document.querySelectorAll('.dropdown-trigger.open').forEach(b=>b.classList.remove('open'));
+  }
+});
+
+// participation date format YYYYMMDD -> YYYY.MM.DD
+function formatPartDate(s){
+  if(!s||s.length!==8)return s;
+  return s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8);
+}
+
+// phone format
+function formatPhone(e){
+  let v=e.target.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>=8)v=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7);
+  else if(v.length>=4)v=v.slice(0,3)+'-'+v.slice(3);
+  e.target.value=v;
+}
+
+// pagination renderer
+function renderPagination(containerId,current,total,perPage,onPageChange){
+  const el=document.getElementById(containerId);
+  if(!el)return;
+  const totalPages=Math.ceil(total/perPage);
+  if(totalPages<=1){el.innerHTML='';return;}
+  const group=Math.floor((current-1)/5);
+  const start=group*5+1;
+  const end=Math.min(start+4,totalPages);
+  let html='<div class="pagination">';
+  html+=`<button class="pg-btn" ${current===1?'disabled':''} onclick="${onPageChange}(1)">«</button>`;
+  html+=`<button class="pg-btn" ${current===1?'disabled':''} onclick="${onPageChange}(${current-1})">‹</button>`;
+  for(let i=start;i<=end;i++){
+    html+=`<button class="pg-btn ${i===current?'active':''}" onclick="${onPageChange}(${i})">${i}</button>`;
+  }
+  html+=`<button class="pg-btn" ${current===totalPages?'disabled':''} onclick="${onPageChange}(${current+1})">›</button>`;
+  html+=`<button class="pg-btn" ${current===totalPages?'disabled':''} onclick="${onPageChange}(${totalPages})">»</button>`;
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════
+//  ROUTER
+// ═══════════════════════════════════════════════════
+const PAGES={
+  'main':'page-main',
+  'preview-write':'page-preview-write',
+  'preview-view':'page-preview-view',
+  'review-write':'page-review-write',
+  'review-view':'page-review-view',
+  'faq':'page-faq',
+  'admin-login':'page-admin-login',
+  'admin-main':'page-admin-main',
+  'admin-schedules':'page-admin-schedules',
+  'admin-applicants':'page-admin-applicants',
+  'admin-preview':'page-admin-preview',
+  'admin-reviews':'page-admin-reviews',
+  'admin-instagram':'page-admin-instagram',
+  'admin-res':'page-admin-res',
+  'admin-main-manage':'page-admin-main-manage',
+  'admin-pq':'page-admin-pq',
+  'admin-rq':'page-admin-rq',
+  'admin-faq':'page-admin-faq',
+};
+const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq'];
+
+let currentPage='main';
+function go(page,params={},pushState=true){
+  const PUB=['main','preview-write','preview-view','review-write','review-view','faq'];
+  if(PUB.includes(page)){window.location.href='index.html';return;}
+  if(ADMIN_PAGES.includes(page)&&!DB.isAdmin()){go('admin-login',{},pushState);return;}
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const pid=PAGES[page];
+  if(!pid)return;
+  document.getElementById(pid).classList.add('active');
+  currentPage=page;
+  window.scrollTo(0,0);
+  if(pushState){
+    const state={page,params};
+    history.pushState(state, '', '#'+page);
+  }
+  // init page
+  if(page==='main')initMain();
+  else if(page==='preview-write')initPW();
+  else if(page==='preview-view')initPV();
+  else if(page==='review-write')initRW();
+  else if(page==='review-view')initRV(1);
+  else if(page==='faq')initFAQ();
+  else if(page==='admin-main')initAdminMain();
+  else if(page==='admin-schedules')initAdminSchedules(1);
+  else if(page==='admin-applicants')initAdminApplicants(params.scheduleId||currentSchedId);
+  else if(page==='admin-preview')initAdminPreview();
+  else if(page==='admin-reviews')initAdminReviews(1);
+  else if(page==='admin-instagram')initAdminInstagram();
+  else if(page==='admin-res')initAdminRes();
+  else if(page==='admin-main-manage')initAdminMainManage();
+  else if(page==='admin-faq')initAdminFAQ();
+}
+
+// ═══════════════════════════════════════════════════
+//  ADMIN SIDEBAR & TOPNAV
+// ═══════════════════════════════════════════════════
+function buildSidebar(pageNum,activePage){
+  const items=[
+    {label:'메인 관리',page:'admin-main-manage'},
+    {label:'일정 관리',page:'admin-schedules'},
+    {label:'신청자 현황 관리',page:'admin-applicants'},
+    {label:'Preview 관리',page:'admin-preview'},
+    {label:'Review 관리',page:'admin-reviews'},
+    {label:'Instagram 링크 관리',page:'admin-instagram'},
+    {label:'예약신청 안내문구 관리',page:'admin-res'},
+    {label:'FAQ 관리',page:'admin-faq'},
+  ];
+  let html=`<div class="sidebar-logo">상호작용</div>`;
+  html+=`<div class="sidebar-label">관리자</div>`;
+  items.forEach(it=>{
+    html+=`<div class="sidebar-link ${activePage===it.page?'active':''}" onclick="go('${it.page}')">${it.label}</div>`;
+  });
+  html+=`<div style="margin-top:auto;padding:16px 18px;border-top:1px solid var(--bd);">
+    <button class="btn btn-secondary btn-sm btn-full" onclick="doLogout()">로그아웃</button>
+  </div>`;
+  const el=document.getElementById('sidebar-'+pageNum);
+  if(el)el.innerHTML=html;
+}
+function buildTopNav(pageNum){
+  const ig=DB.instagram();
+  const items=[
+    {label:'메인 페이지',onclick:"go('main')"},
+    {label:'Preview 보기',onclick:"go('preview-view')"},
+    {label:'Review 보기',onclick:"go('review-view')"},
+    {label:'Instagram',onclick:`openExtLink('${ig}')`},
+    {label:'Preview 작성',onclick:"go('preview-write')"},
+    {label:'Review 작성',onclick:"go('review-write')"},
+    {label:'예약 신청 방법',onclick:"go('main')"},
+    {label:'FAQ',onclick:"go('faq')"},
+  ];
+  let html='';
+  items.forEach(it=>{
+    html+=`<a onclick="${it.onclick}">${it.label}</a>`;
+  });
+  const el=document.getElementById('topnav-'+pageNum);
+  if(el)el.innerHTML=html;
+}
+function setupAdmin(pageNum,activePage){
+  buildSidebar(pageNum,activePage);
+  buildTopNav(pageNum);
+}
+
+function openExtLink(url){
+  if(!url){toast('등록된 링크가 없습니다.','error');return;}
+  window.open(url,'_blank');
+}
+function doLogout(){DB.setAdmin(false);window.location.href='index.html';}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 8: ADMIN LOGIN
+// ═══════════════════════════════════════════════════
+async function doLogin(){
+  const pw=document.getElementById('login-pw').value;
+  const enc=new TextEncoder();
+  const buf=await crypto.subtle.digest('SHA-256',enc.encode(pw));
+  const hex=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(hex==='360e59b8465ac5c57ff1025b1e242cf8e4a5c376b887ca01e6f63b1d0c4b2996'){
+    DB.setAdmin(true);
+    document.getElementById('login-pw').value='';
+    document.getElementById('login-err').style.display='none';
+    go('admin-main');
+  }else{
+    document.getElementById('login-err').style.display='block';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 1: MAIN
+// ═══════════════════════════════════════════════════
+let mainState={scheduleId:null,gender:null,number:null,file:null,fileName:null};
+
+function initMain(){
+  // Menu grid
+  const ig=DB.instagram();
+  const menuActions=["go('preview-view')",`openExtLink('${ig}')`,`openExtLink('${ig}')`,  "go('preview-view')", "go('preview-write')", "go('review-write')", "go('faq')"];
+  const defaultDefs=[
+    {id:'pv-view',label:'상작팅 Preview',icon:'👀',action:"go('preview-view')",bg:''},
+    {id:'rv-view',label:'상작팅 Review',icon:'💬',action:"go('review-view')",bg:''},
+    {id:'instagram',label:'상호작용 Instagram',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
+    {id:'pv-write',label:'상작팅 Preview 작성',icon:'✏️',action:"go('preview-write')",bg:''},
+    {id:'rv-write',label:'상작팅 Review 작성',icon:'📝',action:"go('review-write')",bg:''},
+    {id:'faq',label:'상호작용 FAQ',icon:'❓',action:"go('faq')",bg:''},
+  ];
+  const savedDefs=DB.get('mainMenuDefs',null);
+  const menuDefs=savedDefs?defaultDefs.map((d,i)=>({...d,...savedDefs[i]||{},action:d.action})):defaultDefs;
+  const grid=document.getElementById('mainMenuGrid');
+  grid.innerHTML=menuDefs.map(it=>`
+    <div class="menu-item" onclick="${it.action}" style="${it.bg?'background:url('+it.bg+') center/cover no-repeat;border:none;':''}">
+      ${it.bg?'':'<div class="menu-icon">'+it.icon+'</div>'}
+      <div style="${it.bg?'background:rgba(0,0,0,.45);padding:6px 10px;border-radius:6px;width:100%;text-align:center;':''}">${it.label}</div>
+    </div>`).join('');
+
+  // Schedules dropdown (visible only)
+  const scheds=DB.schedules().filter(s=>s.isVisible).sort((a,b)=>b.createdAt-a.createdAt);
+  const menu=document.getElementById('main-schedule-menu');
+  if(scheds.length===0){
+    menu.innerHTML='<div class="dropdown-empty">등록된 일정이 없습니다.</div>';
+  }else{
+    menu.innerHTML=scheds.map(s=>`
+      <div class="dropdown-item" onclick="selectMainSchedule('${s.id}','${s.displayText}')">${s.displayText}</div>
+    `).join('');
+  }
+
+  // Reset state
+  mainState={scheduleId:null,gender:null,number:null,file:null,fileName:null};
+  document.getElementById('main-schedule-val').textContent='일정을 선택하여 예약해주세요.';
+  document.getElementById('gender-male').classList.remove('selected');
+  document.getElementById('gender-female').classList.remove('selected');
+  document.getElementById('m-name').value='';
+  document.getElementById('m-birth').value='';
+  document.getElementById('m-phone').value='';
+  document.getElementById('m-job').value='';
+  document.getElementById('fileArea').classList.remove('has-file');
+  document.getElementById('fileAreaTxt').textContent='파일을 선택하거나 여기를 클릭하세요';
+  document.getElementById('chk-privacy').checked=false;
+  document.getElementById('chk-res').checked=false;
+  document.getElementById('chk-pay').checked=false;
+  document.getElementById('submitMsg').style.display='none';
+  document.getElementById('submitBtn').style.display='';
+  document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>';
+  updateSubmitBtn();
+
+  // phone input
+  document.getElementById('m-phone').oninput=formatPhone;
+}
+
+function selectMainSchedule(id,text){
+  mainState.scheduleId=id;
+  mainState.number=null;
+  document.getElementById('main-schedule-val').textContent=text;
+  document.getElementById('main-schedule-btn').classList.remove('open');
+  document.getElementById('main-schedule-menu').classList.remove('open');
+  renderNumberGrid();
+  updateSubmitBtn();
+}
+
+function selectGender(g){
+  mainState.gender=g;
+  mainState.number=null;
+  document.getElementById('gender-male').classList.toggle('selected',g==='남');
+  document.getElementById('gender-female').classList.toggle('selected',g==='여');
+  renderNumberGrid();
+  updateSubmitBtn();
+}
+
+function renderNumberGrid(){
+  const area=document.getElementById('numSelectArea');
+  if(!mainState.scheduleId||!mainState.gender){
+    area.innerHTML='<div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>';
+    return;
+  }
+  const taken=getTakenNumbers(mainState.scheduleId,mainState.gender);
+  let html=`<div class="num-section-title">${mainState.gender}자 번호 선택</div><div class="number-grid">`;
+  for(let i=1;i<=12;i++){
+    const isTaken=taken.includes(i);
+    const isSel=mainState.number===i;
+    const cls='num-btn'+(isTaken?' taken':'')+(isSel?' selected':'');
+    const attrs=isTaken?'disabled':('onclick="selectNumber('+i+')"');
+    html+=`<button class="${cls}" ${attrs}>${i}번</button>`;
+  }
+  html+='</div>';
+  area.innerHTML=html;
+}
+
+function getTakenNumbers(scheduleId,gender){
+  return DB.applications()
+    .filter(a=>a.scheduleId===scheduleId&&a.gender===gender)
+    .map(a=>a.number);
+}
+
+function selectNumber(n){
+  mainState.number=n;
+  renderNumberGrid();
+  updateSubmitBtn();
+}
+
+function handleFile(input){
+  const file=input.files[0];
+  if(!file)return;
+  if(file.size>5*1024*1024){toast('파일 크기는 5MB 이하만 가능합니다.','error');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    mainState.file=e.target.result;
+    mainState.fileName=file.name;
+    document.getElementById('fileArea').classList.add('has-file');
+    document.getElementById('fileAreaTxt').textContent=`✓ ${file.name}`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateSubmitBtn(){
+  const p=document.getElementById('chk-privacy').checked;
+  const r=document.getElementById('chk-res').checked;
+  const pay=document.getElementById('chk-pay').checked;
+  document.getElementById('submitBtn').disabled=!(p&&r&&pay);
+}
+
+function openResModal(){
+  renderResModalContent();
+  document.getElementById('resModal').classList.add('open');
+}
+function closeResModal(){document.getElementById('resModal').classList.remove('open');}
+
+function renderResModalContent(){
+  const rm=DB.resMethod();
+  const el=document.getElementById('resModalContent');
+  el.innerHTML=`
+    <div class="res-part" style="margin-bottom:12px;">
+      <div class="res-content">${rm.part1}</div>
+    </div>
+    <div class="res-part" style="margin-bottom:12px;text-align:center;">
+      <div style="font-size:13px;color:var(--txt2);margin-bottom:8px;">아래 계좌로 입금 후 예약 신청을 완료해주세요.</div>
+      <div style="font-size:14px;color:var(--txt);font-weight:600;">${rm.bankName} (${rm.accountHolder})</div>
+      <div class="account-row" style="justify-content:center;">
+        <span class="account-number">${rm.accountNumber}</span>
+        <button class="copy-btn" onclick="copyAccount('${rm.accountNumber}')">복사</button>
+      </div>
+    </div>
+    <div class="res-part">
+      <div class="res-content" style="color:var(--txt2);font-size:13px;">${rm.part3}</div>
+    </div>
+  `;
+}
+
+function copyAccount(num){
+  navigator.clipboard.writeText(num).then(()=>toast('계좌번호가 복사되었습니다.','success')).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=num;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+    document.body.removeChild(ta);toast('계좌번호가 복사되었습니다.','success');
+  });
+}
+
+function handlePaymentDone(){
+  document.getElementById('chk-res').checked=true;
+  closeResModal();
+  updateSubmitBtn();
+  toast('예약 신청 방법 확인이 완료되었습니다.','success');
+}
+
+function submitApplication(){
+  const schedId=mainState.scheduleId;
+  const gender=mainState.gender;
+  const number=mainState.number;
+  const name=document.getElementById('m-name').value.trim();
+  const birth=document.getElementById('m-birth').value.trim();
+  const phone=document.getElementById('m-phone').value.trim();
+  const job=document.getElementById('m-job').value.trim();
+
+  if(!schedId){toast('일정을 선택해주세요.','error');return;}
+  if(!gender){toast('성별을 선택해주세요.','error');return;}
+  if(!name){toast('이름을 입력해주세요.','error');return;}
+  if(birth.length!==8){toast('생년월일을 8자리로 입력해주세요.','error');return;}
+  if(phone.length<12){toast('전화번호를 입력해주세요.','error');return;}
+  if(!job){toast('직업을 입력해주세요.','error');return;}
+  if(!number){toast('상작팅 번호를 선택해주세요.','error');return;}
+
+  // Check if number is still available
+  const taken=getTakenNumbers(schedId,gender);
+  if(taken.includes(number)){toast('선택한 번호가 이미 신청되었습니다. 다른 번호를 선택해주세요.','error');renderNumberGrid();return;}
+
+  const now=Date.now();
+  const app={
+    id:uid(),scheduleId:schedId,gender,number,name,birthdate:birth,
+    phone,occupation:job,
+    fileName:mainState.fileName||'',
+    fileData:mainState.file||'',
+    fileSubmittedAt:now,
+    submittedAt:now
+  };
+  const apps=DB.applications();
+  apps.push(app);
+  DB.saveApplications(apps);
+
+  // Show success
+  document.getElementById('submitBtn').style.display='none';
+  const msg=document.getElementById('submitMsg');
+  msg.innerHTML='✅ 예약 신청이 완료되었습니다!<br><small style="color:var(--txt2);">확인 후 연락드리겠습니다.</small>';
+  msg.style.display='block';
+  toast('예약 신청이 완료되었습니다.','success');
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 2: RESERVATION METHOD (standalone view from nav if needed)
+// ═══════════════════════════════════════════════════
+// (Handled as modal in main page)
+
+// ═══════════════════════════════════════════════════
+//  PAGE 3: PREVIEW WRITE
+// ═══════════════════════════════════════════════════
+let pwState={scheduleId:null,verifiedApp:null};
+
+function initPW(){
+  pwState={scheduleId:null,verifiedApp:null};
+  // Schedules with isPreviewActive
+  const scheds=DB.schedules().filter(s=>s.isPreviewActive).sort((a,b)=>b.createdAt-a.createdAt);
+  const menu=document.getElementById('pw-schedule-menu');
+  if(scheds.length===0){
+    menu.innerHTML='<div class="dropdown-empty">활성화된 일정이 없습니다.</div>';
+  }else{
+    menu.innerHTML=scheds.map(s=>`
+      <div class="dropdown-item" onclick="selectPWSchedule('${s.id}','${s.displayText}')">${s.displayText}</div>
+    `).join('');
+  }
+  document.getElementById('pw-schedule-val').textContent='일정을 선택해주세요.';
+  document.getElementById('pw-name').value='';
+  document.getElementById('pw-birth').value='';
+  document.getElementById('pw-verify-msg').textContent='';
+  document.getElementById('pw-form-area').style.display='none';
+
+}
+
+function selectPWSchedule(id,text){
+  pwState.scheduleId=id;
+  pwState.verifiedApp=null;
+  document.getElementById('pw-schedule-val').textContent=text;
+  document.getElementById('pw-schedule-btn').classList.remove('open');
+  document.getElementById('pw-schedule-menu').classList.remove('open');
+  document.getElementById('pw-form-area').style.display='none';
+  document.getElementById('pw-verify-msg').textContent='';
+
+}
+
+function verifyWriter(){
+  if(!pwState.scheduleId){toast('일정을 먼저 선택해주세요.','error');return;}
+  const name=document.getElementById('pw-name').value.trim();
+  const birth=document.getElementById('pw-birth').value.trim();
+  if(!name||!birth){toast('이름과 생년월일을 입력해주세요.','error');return;}
+  const app=DB.applications().find(a=>a.scheduleId===pwState.scheduleId&&a.name===name&&a.birthdate===birth);
+  const msg=document.getElementById('pw-verify-msg');
+  if(!app){
+    msg.className='text-sm mt8 text-err';
+    msg.textContent='신청자 현황과 일치하지 않습니다.';
+    document.getElementById('pw-form-area').style.display='none';
+  
+    pwState.verifiedApp=null;
+    return;
+  }
+  pwState.verifiedApp=app;
+  msg.className='text-sm mt8 text-ok';
+  msg.textContent=`확인되었습니다. (${app.gender}자 ${app.number}번)`;
+
+  renderPWForm();
+  loadPrevPreview();
+}
+
+function renderPWForm(){
+  const qs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  const area=document.getElementById('pw-form-area');
+  if(qs.length===0){area.innerHTML='<div class="empty-state">등록된 질문이 없습니다.</div>';area.style.display='block';return;}
+  let html='<div class="card-hd">Preview 작성</div>';
+  qs.forEach(q=>{
+    html+=`<div class="form-group">
+      <label class="form-label">Q${q.order}. ${q.content}</label>
+      <textarea class="form-textarea" id="pw-ans-${q.id}" placeholder="내용을 입력하세요"></textarea>
+    </div>`;
+  });
+  html+=`<button class="btn btn-primary btn-full mt16" onclick="savePreview()">작성(수정) 완료</button>`;
+  area.innerHTML=html;
+  area.style.display='block';
+}
+
+function loadPrevPreview(){
+  if(!pwState.verifiedApp)return;
+  const {scheduleId,gender,number}=pwState.verifiedApp;
+  const prev=DB.previews().find(p=>p.scheduleId===scheduleId&&p.gender===gender&&p.number===number);
+  if(!prev)return;
+  const qs=DB.previewQs();
+  qs.forEach(q=>{
+    const el=document.getElementById('pw-ans-'+q.id);
+    if(el&&prev.answers[q.id])el.value=prev.answers[q.id];
+  });
+  toast('이전 작성 내용을 불러왔습니다.','info');
+}
+
+function savePreview(){
+  if(!pwState.verifiedApp){toast('작성자 확인이 필요합니다.','error');return;}
+  const qs=DB.previewQs();
+  const answers={};
+  let hasAll=true;
+  qs.forEach(q=>{
+    const el=document.getElementById('pw-ans-'+q.id);
+    const val=el?el.value.trim():'';
+    if(!val)hasAll=false;
+    answers[q.id]=val;
+  });
+  if(!hasAll){toast('모든 질문에 답변해주세요.','error');return;}
+  const {scheduleId,gender,number}=pwState.verifiedApp;
+  const prevs=DB.previews();
+  const idx=prevs.findIndex(p=>p.scheduleId===scheduleId&&p.gender===gender&&p.number===number);
+  const entry={scheduleId,gender,number,answers,updatedAt:Date.now()};
+  if(idx>=0)prevs[idx]=entry;else prevs.push(entry);
+  DB.savePreviews(prevs);
+  toast('Preview가 저장되었습니다.','success');
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 4: PREVIEW VIEW
+// ═══════════════════════════════════════════════════
+let pvState={scheduleId:null,selected:null};
+
+function initPV(){
+  pvState={scheduleId:null,selected:null};
+  const scheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
+  const menu=document.getElementById('pv-schedule-menu');
+  if(scheds.length===0){
+    menu.innerHTML='<div class="dropdown-empty">등록된 일정이 없습니다.</div>';
+  }else{
+    menu.innerHTML=scheds.map(s=>`
+      <div class="dropdown-item" onclick="selectPVSchedule('${s.id}','${s.displayText}')">${s.displayText}</div>
+    `).join('');
+  }
+  document.getElementById('pv-schedule-val').textContent='일정을 선택해주세요.';
+  document.getElementById('pv-people-area').style.display='none';
+  setupTopBtn('pv-top-btn');
+}
+
+function selectPVSchedule(id,text){
+  pvState.scheduleId=id;pvState.selected=null;
+  document.getElementById('pv-schedule-val').textContent=text;
+  document.getElementById('pv-schedule-btn').classList.remove('open');
+  document.getElementById('pv-schedule-menu').classList.remove('open');
+  document.getElementById('pv-people-area').style.display='block';
+  renderPVGrid();
+  document.getElementById('pv-content-area').innerHTML='';
+}
+
+function renderPVGrid(){
+  ['male','female'].forEach(g=>{
+    const gender=g==='male'?'남':'여';
+    const grid=document.getElementById(`pv-${g}-grid`);
+    let html='';
+    for(let i=1;i<=12;i++){
+      const isActive=pvState.selected&&pvState.selected.gender===gender&&pvState.selected.number===i;
+      html+=`<button class="person-btn ${isActive?'active':''}" onclick="selectPVPerson('${gender}',${i})">${gender}자 ${i}번</button>`;
+    }
+    grid.innerHTML=html;
+  });
+}
+
+function selectPVPerson(gender,number){
+  pvState.selected={gender,number};
+  renderPVGrid();
+  const prev=DB.previews().find(p=>p.scheduleId===pvState.scheduleId&&p.gender===gender&&p.number===number);
+  const qs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  const area=document.getElementById('pv-content-area');
+  let html=`<div class="card"><div class="card-hd">${gender}자 ${number}번</div>`;
+  if(!prev||qs.length===0){
+    html+='<div class="pv-empty">아직 작성된 내용이 없습니다.</div>';
+  }else{
+    html+='<div class="preview-content">';
+    qs.forEach(q=>{
+      html+=`<div class="pv-q">Q${q.order}. ${q.content}</div>
+             <div class="pv-a">${prev.answers[q.id]||'(미작성)'}</div>`;
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  area.innerHTML=html;
+}
+
+function setupTopBtn(btnId){
+  const btn=document.getElementById(btnId);
+  if(!btn)return;
+  // Remove previous scroll listener
+  if(window._scrollHandler)window.removeEventListener('scroll',window._scrollHandler);
+  window._scrollHandler=()=>{btn.classList.toggle('visible',window.scrollY>300);};
+  window.addEventListener('scroll',window._scrollHandler);
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 5: REVIEW WRITE
+// ═══════════════════════════════════════════════════
+let rwState={gender:null,number:null,verified:false};
+
+function initRW(){
+  rwState={gender:null,number:null,verified:false};
+  document.getElementById('rw-name').value='';
+  document.getElementById('rw-birth').value='';
+  document.getElementById('rw-partdate').value='';
+  document.getElementById('rw-gender-val').textContent='선택해주세요';
+  document.getElementById('rw-num-val').textContent='선택해주세요';
+  document.getElementById('rw-verify-msg').textContent='';
+  document.getElementById('rw-done-msg').style.display='none';
+  // Render review questions immediately
+  renderRWForm();
+
+  // Notice
+  const notice=DB.reviewNotice();
+  const na=document.getElementById('rw-notice-area');
+  if(notice){na.innerHTML=`<div class="card" style="text-align:center;color:var(--gold);font-size:13px;">${notice}</div>`;}
+
+  // Number dropdown 1-12
+  let html='';
+  for(let i=1;i<=12;i++)html+=`<div class="dropdown-item" onclick="selectRwNum(${i})">${i}번</div>`;
+  document.getElementById('rw-num-menu').innerHTML=html;
+}
+
+function selectRwGender(g){
+  rwState.gender=g;
+  document.getElementById('rw-gender-val').textContent=g;
+  document.getElementById('rw-gender-btn').classList.remove('open');
+  document.getElementById('rw-gender-menu').classList.remove('open');
+  checkRwForm();
+}
+
+function selectRwNum(n){
+  rwState.number=n;
+  document.getElementById('rw-num-val').textContent=n+'번';
+  document.getElementById('rw-num-btn').classList.remove('open');
+  document.getElementById('rw-num-menu').classList.remove('open');
+  checkRwForm();
+}
+
+function checkRwForm(){
+  const name=document.getElementById('rw-name').value.trim();
+  const birth=document.getElementById('rw-birth').value.trim();
+  const pdate=document.getElementById('rw-partdate').value.trim();
+  const ready=name&&birth.length===8&&pdate.length===8&&rwState.gender&&rwState.number;
+  if(ready)verifyRWParticipant();
+}
+
+function verifyRWParticipant(){
+  const name=document.getElementById('rw-name').value.trim();
+  const birth=document.getElementById('rw-birth').value.trim();
+  const pdate=document.getElementById('rw-partdate').value.trim();
+  const msg=document.getElementById('rw-verify-msg');
+  // Find matching application: name + birthdate + schedule date matches pdate
+  const scheds=DB.schedules();
+  const apps=DB.applications();
+  // pdate format YYYYMMDD, schedule displayText contains year/month/day
+  const matched=apps.find(a=>{
+    if(a.name!==name||a.birthdate!==birth)return false;
+    const sched=scheds.find(s=>s.id===a.scheduleId);
+    if(!sched)return false;
+    // Build date string from schedule
+    const schedDate=`${sched.year}${String(sched.month).padStart(2,'0')}${String(sched.day).padStart(2,'0')}`;
+    return schedDate===pdate;
+  });
+  if(!matched){
+    msg.className='text-sm mt8 text-err';
+    msg.textContent='참석자 현황과 일치하지 않습니다.';
+    const btn5=document.getElementById('rw-submit-btn');
+    if(btn5)btn5.disabled=true;
+    rwState.verified=false;
+    return;
+  }
+  rwState.verified=true;
+  msg.className='text-sm mt8 text-ok';
+  msg.textContent='확인되었습니다.';
+}
+
+function renderRWForm(){
+  const qs=DB.reviewQs().sort((a,b)=>a.order-b.order);
+  const area=document.getElementById('rw-form-area');
+  let html='<div class="card-hd">리뷰 작성</div>';
+  qs.forEach(q=>{
+    html+=`<div class="form-group">
+      <label class="form-label">Q${q.order}. ${q.content}</label>
+      <textarea class="form-textarea" id="rw-ans-${q.id}" placeholder="내용을 입력하세요" oninput="checkRwSubmit()"></textarea>
+    </div>`;
+  });
+  area.innerHTML=html+`<button class="btn btn-primary btn-full mt16" id="rw-submit-btn" disabled onclick="submitReview()">작성 완료</button>`;
+  area.style.display='block';
+}
+
+function checkRwSubmit(){
+  const qs=DB.reviewQs();
+  const allFilled=qs.every(q=>{
+    const el=document.getElementById('rw-ans-'+q.id);
+    return el&&el.value.trim().length>0;
+  });
+  const btn=document.getElementById('rw-submit-btn');
+  if(btn)btn.disabled=!allFilled||!rwState.verified;
+}
+
+function submitReview(){
+  if(!rwState.verified){toast('참석자 확인이 필요합니다.','error');return;}
+  const qs=DB.reviewQs();
+  const answers={};
+  qs.forEach(q=>{
+    const el=document.getElementById('rw-ans-'+q.id);
+    answers[q.id]=el?el.value.trim():'';
+  });
+  const review={
+    id:uid(),
+    name:document.getElementById('rw-name').value.trim(),
+    birthdate:document.getElementById('rw-birth').value.trim(),
+    participationDate:document.getElementById('rw-partdate').value.trim(),
+    gender:rwState.gender,
+    number:rwState.number,
+    answers,
+    createdAt:Date.now()
+  };
+  const reviews=DB.reviews();
+  reviews.push(review);
+  DB.saveReviews(reviews);
+  document.getElementById('rw-form-area').style.display='none';
+  const done=document.getElementById('rw-done-msg');
+  done.innerHTML='소중한 리뷰작성 감사합니다 :)';
+  done.style.display='block';
+  toast('리뷰가 등록되었습니다.','success');
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 6: REVIEW VIEW
+// ═══════════════════════════════════════════════════
+let rvPage=1;
+const RV_PER_PAGE=3;
+
+function initRV(page){
+  rvPage=page||1;
+  renderRV();
+}
+
+function renderRV(){
+  const reviews=DB.reviews().sort((a,b)=>b.createdAt-a.createdAt);
+  const empty=document.getElementById('rv-empty');
+  const list=document.getElementById('rv-list');
+  if(reviews.length===0){empty.style.display='block';list.innerHTML='';document.getElementById('rv-pagination').innerHTML='';return;}
+  empty.style.display='none';
+  const start=(rvPage-1)*RV_PER_PAGE;
+  const slice=reviews.slice(start,start+RV_PER_PAGE);
+  const qs=DB.reviewQs().sort((a,b)=>a.order-b.order);
+  list.innerHTML=slice.map(r=>{
+    const dt=new Date(r.createdAt);
+    const dtStr=`${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}, ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const emojiList=['💬','✨','🌟','💫','🎯','🌸','💝','🎀','🌙','⭐'];
+    let qas='';
+    qs.forEach((q,qi)=>{const em=emojiList[qi%emojiList.length];qas+=`<div class="rv-q">${em} ${q.content}</div><div class="rv-a">${r.answers[q.id]||'(미작성)'}</div>`;});
+    return `<div class="review-card">
+      <div class="review-hd">
+        <div class="review-who">${formatPartDate(r.participationDate)} 참석</div>
+        <div class="review-when">${dtStr}</div>
+      </div>
+      ${qas}
+    </div>`;
+  }).join('');
+  renderPagination('rv-pagination',rvPage,reviews.length,RV_PER_PAGE,'initRV');
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 7: FAQ
+// ═══════════════════════════════════════════════════
+function initFAQ(){
+  const faqs=DB.faq().sort((a,b)=>a.order-b.order);
+  const list=document.getElementById('faq-list');
+  const empty=document.getElementById('faq-empty');
+  if(faqs.length===0){empty.style.display='block';list.innerHTML='';return;}
+  empty.style.display='none';
+  list.innerHTML=faqs.map((f,i)=>`
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(${i})">
+        <div><span class="faq-qmark">Q.</span>${f.question}</div>
+        <span class="faq-chevron" id="faq-chev-${i}">▼</span>
+      </div>
+      <div class="faq-a" id="faq-ans-${i}">
+        <div style="color:var(--txt2);font-size:13px;line-height:1.7;">${f.answer||'(답변 준비 중)'}</div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleFaq(i){
+  const ans=document.getElementById('faq-ans-'+i);
+  const chev=document.getElementById('faq-chev-'+i);
+  const q=ans.previousElementSibling;
+  const isOpen=ans.classList.contains('open');
+  ans.classList.toggle('open',!isOpen);
+  q.classList.toggle('open',!isOpen);
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 9: ADMIN MAIN
+// ═══════════════════════════════════════════════════
+function initAdminMain(){
+  setupAdmin('9','admin-main');
+  const items=[
+    {icon:'🏠',label:'메인 관리',page:'admin-main-manage'},
+    {icon:'📅',label:'일정 관리',page:'admin-schedules'},
+    {icon:'👥',label:'신청자 현황 관리',page:'admin-applicants'},
+    {icon:'📋',label:'Preview 관리',page:'admin-preview'},
+    {icon:'💬',label:'Review 관리',page:'admin-reviews'},
+    {icon:'📸',label:'Instagram 링크 관리',page:'admin-instagram'},
+    {icon:'📝',label:'예약신청 안내문구 관리',page:'admin-res'},
+    {icon:'🗂',label:'FAQ 관리',page:'admin-faq'},
+  ];
+  document.getElementById('admin-main-grid').innerHTML=items.map(it=>`
+    <div class="admin-card-item" onclick="go('${it.page}')">
+      <div class="admin-card-icon">${it.icon}</div>
+      <div class="admin-card-label">${it.label}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  DATE PICKER (for page 10)
+// ═══════════════════════════════════════════════════
+let dpState={year:0,month:0,selectedY:0,selectedM:0,selectedD:0,callback:null};
+
+function openDatePick(){
+  const now=new Date();
+  dpState.year=now.getFullYear();
+  dpState.month=now.getMonth()+1;
+  dpState.selectedY=dpState.selectedM=dpState.selectedD=0;
+  document.getElementById('dpStep1').classList.add('active');
+  document.getElementById('dpStep2').classList.remove('active');
+  renderCalendar();
+  document.getElementById('datePickModal').classList.add('open');
+}
+
+function renderCalendar(){
+  const {year,month}=dpState;
+  document.getElementById('calMonthLabel').textContent=`${year}년 ${month}월`;
+  const firstDay=new Date(year,month-1,1).getDay();
+  const daysInMonth=new Date(year,month,0).getDate();
+  const today=new Date();
+  const todayY=today.getFullYear(),todayM=today.getMonth()+1,todayD=today.getDate();
+  const dows=['일','월','화','수','목','금','토'];
+  let html=dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++)html+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const isPast=new Date(year,month-1,d)<new Date(todayY,todayM-1,todayD);
+    const isToday=year===todayY&&month===todayM&&d===todayD;
+    const isSel=dpState.selectedY===year&&dpState.selectedM===month&&dpState.selectedD===d;
+    const cls=[isToday?'today':'',isSel?'selected':'',isPast?'disabled':''].filter(Boolean).join(' ');
+    const clickAct=isPast?'':`onclick="selectCalDay(${d})"`;
+    html+=`<div class="cal-day ${cls}" ${clickAct}>${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML=html;
+}
+
+document.getElementById('calPrev').onclick=()=>{
+  dpState.month--;if(dpState.month<1){dpState.month=12;dpState.year--;}
+  renderCalendar();
+};
+document.getElementById('calNext').onclick=()=>{
+  dpState.month++;if(dpState.month>12){dpState.month=1;dpState.year++;}
+  renderCalendar();
+};
+
+function selectCalDay(d){
+  dpState.selectedY=dpState.year;
+  dpState.selectedM=dpState.month;
+  dpState.selectedD=d;
+  const dow=getDayKr(dpState.year,dpState.month,d);
+  document.getElementById('dpSelectedDate').textContent=`${dpState.year}년 ${dpState.month}월 ${d}일(${dow})`;
+  // Show time step
+  document.getElementById('dpStep1').classList.remove('active');
+  document.getElementById('dpStep2').classList.add('active');
+  renderTimeGrid();
+}
+
+document.getElementById('dpBack').onclick=()=>{
+  document.getElementById('dpStep2').classList.remove('active');
+  document.getElementById('dpStep1').classList.add('active');
+  renderCalendar();
+};
+
+function renderTimeGrid(){
+  const times=['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
+  document.getElementById('timeGrid').innerHTML=times.map(t=>`
+    <button class="time-btn" onclick="selectTime('${t}')">${t}</button>`).join('');
+}
+
+function selectTime(t){
+  const {selectedY:y,selectedM:m,selectedD:d}=dpState;
+  const [h,min]=t.split(':').map(Number);
+  const text=formatScheduleText(y,m,d,h,min);
+  document.getElementById('sched-input').value=text;
+  document.getElementById('datePickModal').classList.remove('open');
+  // Store pending schedule data
+  window._pendingSched={year:y,month:m,day:d,hour:h,minute:min,displayText:text};
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 10: ADMIN SCHEDULES
+// ═══════════════════════════════════════════════════
+let schedPage=1;
+const SCHED_PER_PAGE=5;
+
+function initAdminSchedules(page){
+  setupAdmin('10','admin-schedules');
+  schedPage=page||1;
+  document.getElementById('sched-input').value='';
+  window._pendingSched=null;
+  renderSchedTable();
+}
+
+function addSchedule(){
+  if(!window._pendingSched){toast('날짜와 시간을 선택해주세요.','error');return;}
+  const{year,month,day,hour,minute,displayText}=window._pendingSched;
+  const schedules=DB.schedules();
+  const newSched={
+    id:uid(),year,month,day,hour,minute,displayText,
+    isVisible:false,isPreviewActive:false,
+    createdAt:Date.now(),
+    order:schedules.length+1
+  };
+  schedules.push(newSched);
+  // Re-order: sort by date desc, assign order
+  schedules.sort((a,b)=>b.createdAt-a.createdAt);
+  schedules.forEach((s,i)=>s.order=schedules.length-i);
+  DB.saveSchedules(schedules);
+  document.getElementById('sched-input').value='';
+  window._pendingSched=null;
+  toast('일정이 등록되었습니다.','success');
+  initAdminSchedules(1);
+}
+
+function renderSchedTable(){
+  const scheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
+  // Re-assign order: newest = highest
+  scheds.forEach((s,i)=>s.order=scheds.length-i);
+  const tbody=document.getElementById('sched-tbody');
+  const empty=document.getElementById('sched-empty');
+  if(scheds.length===0){tbody.innerHTML='';empty.style.display='block';document.getElementById('sched-pagination').innerHTML='';return;}
+  empty.style.display='none';
+  const start=(schedPage-1)*SCHED_PER_PAGE;
+  const slice=scheds.slice(start,start+SCHED_PER_PAGE);
+  tbody.innerHTML=slice.map(s=>`
+    <tr>
+      <td>${s.order}</td>
+      <td>${s.displayText}</td>
+      <td>
+        <label class="toggle">
+          <input type="checkbox" ${s.isVisible?'checked':''} onchange="toggleSchedVisible('${s.id}',this.checked)">
+          <div class="toggle-track"></div>
+        </label>
+      </td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteSchedule('${s.id}')">삭제</button></td>
+    </tr>`).join('');
+  renderPagination('sched-pagination',schedPage,scheds.length,SCHED_PER_PAGE,'initAdminSchedules');
+}
+
+function toggleSchedVisible(id,val){
+  const scheds=DB.schedules();
+  const s=scheds.find(x=>x.id===id);
+  if(s){s.isVisible=val;DB.saveSchedules(scheds);}
+}
+
+function deleteSchedule(id){
+  confirm2('정말 삭제하시겠습니까?',()=>{
+    const scheds=DB.schedules().filter(s=>s.id!==id);
+    DB.saveSchedules(scheds);
+    // Also remove related data
+    DB.saveApplications(DB.applications().filter(a=>a.scheduleId!==id));
+    DB.savePreviews(DB.previews().filter(p=>p.scheduleId!==id));
+    toast('일정이 삭제되었습니다.','success');
+    initAdminSchedules(1);
+  });
+}
+
+function goApplicants(scheduleId){go('admin-applicants',{scheduleId});}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 11: ADMIN APPLICANTS
+// ═══════════════════════════════════════════════════
+let currentSchedId=null;
+
+function initAdminApplicants(scheduleId){
+  setupAdmin(11,'admin-schedules');
+  if(scheduleId)currentSchedId=scheduleId;
+  const sched=DB.schedules().find(s=>s.id===scheduleId);
+  const title=document.getElementById('applicants-title');
+  title.textContent=sched?`신청자 현황 - ${sched.displayText}`:'신청자 현황';
+  renderApplicants();
+}
+
+function renderApplicants(){
+  if(!currentSchedId){
+    document.getElementById('applicants-content').innerHTML='<div class="empty-state">일정을 선택해주세요.</div>';
+    return;
+  }
+  const apps=DB.applications().filter(a=>a.scheduleId===currentSchedId);
+  const now=Date.now();
+  const el=document.getElementById('applicants-content');
+  el.innerHTML='';
+  let fullHtml='';
+  ['남','여'].forEach(gender=>{
+    const gApps=apps.filter(a=>a.gender===gender).sort((a,b)=>a.number-b.number);
+    let html='<div class="card"><div class="card-hd">'+gender+'자</div>';
+    if(gApps.length===0){html+='<div class="empty-state" style="padding:16px;">신청자가 없습니다.</div>';}
+    else{
+      html+='<div class="table-wrap"><table class="data-table"><thead><tr><th>번호</th><th>이름</th><th>생년월일</th><th>직업</th><th>전화번호</th><th>파일</th><th>삭제</th></tr></thead><tbody>';
+      gApps.forEach(a=>{
+        const expired=a.fileData&&(now-a.fileSubmittedAt>30*24*60*60*1000);
+        const hasFile=a.fileData&&!expired;
+        const fileBtn=hasFile
+          ?`<button class="btn btn-secondary btn-sm" onclick="downloadFile('${a.id}')">다운로드</button>`
+          :(a.fileData?'<span class="text-err text-sm">만료됨</span>':'<span class="text-muted text-sm">없음</span>');
+        html+=`<tr><td>${a.number}번</td><td>${a.name}</td><td>${a.birthdate}</td>`
+          +`<td>${a.occupation}</td><td>${a.phone}</td><td>${fileBtn}</td>`
+          +`<td><button class="btn btn-danger btn-sm" onclick="deleteApplicant('${a.id}','${gender}',${a.number})">삭제</button></td></tr>`;
+      });
+      html+='</tbody></table></div>';
+    }
+    html+='</div>';
+    fullHtml+=html;
+  });
+  el.innerHTML=fullHtml;
+}
+
+function downloadFile(appId){
+  const app=DB.applications().find(a=>a.id===appId);
+  if(!app||!app.fileData){toast('파일이 없습니다.','error');return;}
+  const link=document.createElement('a');
+  link.href=app.fileData;link.download=app.fileName||'file';
+  link.click();
+}
+
+function deleteApplicant(appId,gender,number){
+  confirm2('정말 삭제하시겠습니까?\n(해당 번호가 다시 활성화됩니다.)',()=>{
+    DB.saveApplications(DB.applications().filter(a=>a.id!==appId));
+    // Remove preview for this person
+    const sched=currentSchedId;
+    DB.savePreviews(DB.previews().filter(p=>!(p.scheduleId===sched&&p.gender===gender&&p.number===number)));
+    toast('신청자 정보가 삭제되었습니다.','success');
+    document.getElementById('applicants-content').innerHTML='';
+    renderApplicants();
+  });
+}
+
+// Expire file check
+function checkExpiredFiles(){
+  const now=Date.now();
+  let apps=DB.applications();
+  let changed=false;
+  apps=apps.map(a=>{
+    if(a.fileData&&(now-a.fileSubmittedAt>30*24*60*60*1000)){
+      changed=true;
+      return{...a,fileData:'',fileName:''};
+    }
+    return a;
+  });
+  if(changed)DB.saveApplications(apps);
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 12: ADMIN PREVIEW MANAGEMENT
+// ═══════════════════════════════════════════════════
+let apState={scheduleId:null,selected:null};
+
+function initAdminPreview(){
+  setupAdmin('12','admin-preview');
+  apState={scheduleId:null,selected:null};
+  renderAPSchedSection();
+  renderPQTable();
+  const scheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
+  const menu=document.getElementById('ap-schedule-menu');
+  if(scheds.length===0){menu.innerHTML='<div class="dropdown-empty">등록된 일정이 없습니다.</div>';}
+  else{menu.innerHTML=scheds.map(s=>`<div class="dropdown-item" onclick="selectAPSchedule('${s.id}','${s.displayText}')">${s.displayText}</div>`).join('');}
+  document.getElementById('ap-schedule-val').textContent='일정을 선택해주세요.';
+  document.getElementById('ap-people-area').style.display='none';
+  setupTopBtn('ap-top-btn');
+}
+
+function renderAPSchedSection(){
+  const scheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
+  const tbody=document.getElementById('ap-sched-tbody');
+  const empty=document.getElementById('ap-sched-empty');
+  if(!tbody)return;
+  if(scheds.length===0){if(tbody)tbody.innerHTML='';if(empty)empty.style.display='block';return;}
+  if(empty)empty.style.display='none';
+  scheds.forEach((s,i)=>s.order=scheds.length-i);
+  const start=(apSchedPage-1)*SCHED_PER_PAGE;
+  const slice=scheds.slice(start,start+SCHED_PER_PAGE);
+  tbody.innerHTML=slice.map(s=>`
+    <tr>
+      <td>${s.order}</td>
+      <td>${s.displayText}</td>
+      <td><label class="toggle"><input type="checkbox" ${s.isPreviewActive?'checked':''} onchange="togglePQSchedActive('${s.id}',this.checked)"><div class="toggle-track"></div></label></td>
+    </tr>`).join('');
+  renderPagination('ap-sched-pagination',apSchedPage,scheds.length,SCHED_PER_PAGE,'apSchedPageChange');
+}
+let apSchedPage=1;
+function apSchedPageChange(p){apSchedPage=p;renderAPSchedSection();}
+
+function selectAPSchedule(id,text){
+  apState.scheduleId=id;apState.selected=null;
+  document.getElementById('ap-schedule-val').textContent=text;
+  document.getElementById('ap-schedule-btn').classList.remove('open');
+  document.getElementById('ap-schedule-menu').classList.remove('open');
+  document.getElementById('ap-people-area').style.display='block';
+  renderAPGrid();
+  document.getElementById('ap-content-area').innerHTML='';
+}
+
+function renderAPGrid(){
+  ['male','female'].forEach(g=>{
+    const gender=g==='male'?'남':'여';
+    const grid=document.getElementById(`ap-${g}-grid`);
+    let html='';
+    for(let i=1;i<=12;i++){
+      const isActive=apState.selected&&apState.selected.gender===gender&&apState.selected.number===i;
+      html+=`<button class="person-btn ${isActive?'active':''}" onclick="selectAPPerson('${gender}',${i})">${gender}자 ${i}번</button>`;
+    }
+    grid.innerHTML=html;
+  });
+}
+
+function selectAPPerson(gender,number){
+  apState.selected={gender,number};
+  renderAPGrid();
+  renderAPContent();
+}
+
+function renderAPContent(){
+  if(!apState.selected)return;
+  const{scheduleId}=apState;
+  const{gender,number}=apState.selected;
+  const prev=DB.previews().find(p=>p.scheduleId===scheduleId&&p.gender===gender&&p.number===number);
+  const qs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  let html=`<div class="card"><div class="flex-between mb16">
+    <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">${gender}자 ${number}번 Preview</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" id="ap-edit-btn" onclick="toggleAPEdit()">수정</button>
+      <button class="btn btn-danger btn-sm" onclick="resetAPPreview()">초기화</button>
+    </div>
+  </div>`;
+  if(qs.length===0){html+='<div class="empty-state">등록된 질문이 없습니다.</div>';}
+  else{
+    qs.forEach(q=>{
+      const ans=prev?prev.answers[q.id]||'':'';
+      html+=`<div class="form-group">
+        <label class="form-label">Q${q.order}. ${q.content}</label>
+        <textarea class="form-textarea" id="ap-ans-${q.id}" disabled>${ans}</textarea>
+      </div>`;
+    });
+  }
+  html+='</div>';
+  document.getElementById('ap-content-area').innerHTML=html;
+}
+
+function toggleAPEdit(){
+  const btn=document.getElementById('ap-edit-btn');
+  const qs=DB.previewQs();
+  const isEditing=btn.textContent==='저장';
+  if(isEditing){
+    // Save
+    const{scheduleId}=apState;
+    const{gender,number}=apState.selected;
+    const answers={};
+    qs.forEach(q=>{
+      const el=document.getElementById('ap-ans-'+q.id);
+      answers[q.id]=el?el.value.trim():'';
+    });
+    const prevs=DB.previews();
+    const idx=prevs.findIndex(p=>p.scheduleId===scheduleId&&p.gender===gender&&p.number===number);
+    const entry={scheduleId,gender,number,answers,updatedAt:Date.now()};
+    if(idx>=0)prevs[idx]=entry;else prevs.push(entry);
+    DB.savePreviews(prevs);
+    qs.forEach(q=>{const el=document.getElementById('ap-ans-'+q.id);if(el)el.disabled=true;});
+    btn.textContent='수정';
+    toast('저장되었습니다.','success');
+  }else{
+    qs.forEach(q=>{const el=document.getElementById('ap-ans-'+q.id);if(el)el.disabled=false;});
+    btn.textContent='저장';
+  }
+}
+
+function resetAPPreview(){
+  confirm2('정말 초기화 시키겠습니까?',()=>{
+    const{scheduleId}=apState;
+    const{gender,number}=apState.selected;
+    DB.savePreviews(DB.previews().filter(p=>!(p.scheduleId===scheduleId&&p.gender===gender&&p.number===number)));
+    renderAPContent();
+    toast('초기화되었습니다.','success');
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 13: ADMIN REVIEWS
+// ═══════════════════════════════════════════════════
+let arPage=1;
+
+function initAdminReviews(page){
+  setupAdmin('13','admin-reviews');
+  arPage=page||1;
+  renderRQTable();
+  initRQNotice();
+  renderARList();
+}
+
+function initRQNotice(){
+  const notice=DB.reviewNotice();
+  const disp=document.getElementById('rq-notice-display');
+  const inp=document.getElementById('rq-notice-input');
+  if(disp)disp.textContent=notice;
+  if(inp)inp.value=notice;
+}
+
+function renderARList(){
+  const reviews=DB.reviews().sort((a,b)=>b.createdAt-a.createdAt);
+  const empty=document.getElementById('ar-empty');
+  const list=document.getElementById('ar-list');
+  if(reviews.length===0){empty.style.display='block';list.innerHTML='';document.getElementById('ar-pagination').innerHTML='';return;}
+  empty.style.display='none';
+  const start=(arPage-1)*RV_PER_PAGE;
+  const slice=reviews.slice(start,start+RV_PER_PAGE);
+  const qs=DB.reviewQs().sort((a,b)=>a.order-b.order);
+  list.innerHTML=slice.map(r=>{
+    const dt=new Date(r.createdAt);
+    const dtStr=`${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}, ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    let qas='';
+    qs.forEach(q=>{qas+=`<div class="rv-q">Q${q.order}. ${q.content}</div><div class="rv-a">${r.answers[q.id]||'(미작성)'}</div>`;});
+    return `<div class="review-card">
+      <div class="review-hd">
+        <div class="review-who">${formatPartDate(r.participationDate)} 참석</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="review-when">${dtStr}</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteReview('${r.id}')">삭제</button>
+        </div>
+      </div>
+      ${qas}
+    </div>`;
+  }).join('');
+  renderPagination('ar-pagination',arPage,reviews.length,RV_PER_PAGE,'initAdminReviews');
+}
+
+function deleteReview(id){
+  confirm2('정말 삭제하시겠습니까?',()=>{
+    DB.saveReviews(DB.reviews().filter(r=>r.id!==id));
+    toast('리뷰가 삭제되었습니다.','success');
+    initAdminReviews(1);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 14: ADMIN INSTAGRAM
+// ═══════════════════════════════════════════════════
+function initAdminInstagram(){
+  setupAdmin('14','admin-instagram');
+  document.getElementById('ig-input').value=DB.instagram();
+  document.getElementById('ig-msg').style.display='none';
+}
+
+function saveInstagram(){
+  const url=document.getElementById('ig-input').value.trim();
+  DB.saveInstagram(url);
+  const msg=document.getElementById('ig-msg');
+  msg.textContent='등록 되었습니다.';
+  msg.className='text-sm mt8 text-ok';
+  msg.style.display='block';
+  toast('Instagram 링크가 등록되었습니다.','success');
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 15: ADMIN RESERVATION METHOD
+// ═══════════════════════════════════════════════════
+function initAdminRes(){
+  setupAdmin('15','admin-res');
+  renderResParts();
+}
+
+function renderResParts(){
+  const rm=DB.resMethod();
+  // Part 1
+  document.getElementById('res-part1-card').innerHTML=`
+    <div class="flex-between mb8">
+      <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">파트 1 - DM 안내 문구</div>
+      <button class="btn btn-secondary btn-sm" id="res1-btn" onclick="toggleResPart(1)">수정</button>
+    </div>
+    <div id="res1-display" class="res-content">${rm.part1}</div>
+    <div id="res1-edit" style="display:none;">
+      <textarea class="form-textarea" id="res1-input" style="min-height:120px;">${rm.part1}</textarea>
+    </div>`;
+  // Part 2
+  document.getElementById('res-part2-card').innerHTML=`
+    <div class="flex-between mb8">
+      <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">파트 2 - 계좌 정보</div>
+      <button class="btn btn-secondary btn-sm" id="res2-btn" onclick="toggleResPart(2)">수정</button>
+    </div>
+    <div id="res2-display">
+      <div style="margin-bottom:6px;"><span style="color:var(--txt2);">은행:</span> <span>${rm.bankName}</span></div>
+      <div style="margin-bottom:6px;"><span style="color:var(--txt2);">예금주:</span> <span>${rm.accountHolder}</span></div>
+      <div><span style="color:var(--txt2);">계좌번호:</span> <span class="text-gold">${rm.accountNumber}</span></div>
+    </div>
+    <div id="res2-edit" style="display:none;">
+      <div class="form-group"><label class="form-label">은행명</label><input class="form-input" id="res2-bank" value="${rm.bankName}"></div>
+      <div class="form-group"><label class="form-label">예금주</label><input class="form-input" id="res2-holder" value="${rm.accountHolder}"></div>
+      <div class="form-group"><label class="form-label">계좌번호</label><input class="form-input" id="res2-num" value="${rm.accountNumber}"></div>
+    </div>`;
+  // Part 3
+  document.getElementById('res-part3-card').innerHTML=`
+    <div class="flex-between mb8">
+      <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">파트 3 - 주의사항</div>
+      <button class="btn btn-secondary btn-sm" id="res3-btn" onclick="toggleResPart(3)">수정</button>
+    </div>
+    <div id="res3-display" class="res-content">${rm.part3}</div>
+    <div id="res3-edit" style="display:none;">
+      <textarea class="form-textarea" id="res3-input" style="min-height:80px;">${rm.part3}</textarea>
+    </div>`;
+}
+
+function toggleResPart(part){
+  const display=document.getElementById(`res${part}-display`);
+  const edit=document.getElementById(`res${part}-edit`);
+  const btn=document.getElementById(`res${part}-btn`);
+  const isEditing=btn.textContent==='저장';
+  if(isEditing){
+    const rm=DB.resMethod();
+    if(part===1){rm.part1=document.getElementById('res1-input').value;display.textContent=rm.part1;}
+    else if(part===2){
+      rm.bankName=document.getElementById('res2-bank').value;
+      rm.accountHolder=document.getElementById('res2-holder').value;
+      rm.accountNumber=document.getElementById('res2-num').value;
+    }
+    else if(part===3){rm.part3=document.getElementById('res3-input').value;display.textContent=rm.part3;}
+    DB.saveResMethod(rm);
+    display.style.display='';edit.style.display='none';btn.textContent='수정';
+    if(part===2)renderResParts();
+    toast('저장되었습니다.','success');
+  }else{
+    display.style.display='none';edit.style.display='block';btn.textContent='저장';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 16: ADMIN PREVIEW QUESTIONS
+// ═══════════════════════════════════════════════════
+let pqSchedPage=1;
+
+function initAdminPQ(page){
+  setupAdmin('16','admin-pq');
+  pqSchedPage=page||1;
+  renderPQTable();
+  renderPQSchedTable();
+}
+
+function renderPQTable(){
+  const qs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  const tbody=document.getElementById('pq-tbody');
+  const empty=document.getElementById('pq-empty');
+  if(qs.length===0){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=qs.map(q=>`
+    <tr id="pq-row-${q.id}">
+      <td>${q.order}</td>
+      <td><span id="pq-txt-${q.id}">${q.content}</span><input class="form-input" id="pq-inp-${q.id}" value="${q.content}" style="display:none;"></td>
+      <td><button class="btn btn-secondary btn-sm" id="pq-edit-${q.id}" onclick="togglePQEdit('${q.id}')">수정</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deletePQ('${q.id}')">삭제</button></td>
+    </tr>`).join('');
+}
+
+function addPQ(){
+  const qs=DB.previewQs();
+  qs.push({id:uid(),order:qs.length+1,content:'새 질문'});
+  DB.savePreviewQs(qs);renderPQTable();
+}
+
+function togglePQEdit(id){
+  const btn=document.getElementById('pq-edit-'+id);
+  const txt=document.getElementById('pq-txt-'+id);
+  const inp=document.getElementById('pq-inp-'+id);
+  if(btn.textContent==='저장'){
+    const qs=DB.previewQs();
+    const q=qs.find(x=>x.id===id);
+    if(q){q.content=inp.value.trim();DB.savePreviewQs(qs);}
+    txt.textContent=inp.value.trim();
+    txt.style.display='';inp.style.display='none';btn.textContent='수정';
+    toast('저장되었습니다.','success');
+  }else{txt.style.display='none';inp.style.display='';btn.textContent='저장';}
+}
+
+function deletePQ(id){
+  confirm2('정말 삭제하시겠습니까?',()=>{
+    let qs=DB.previewQs().filter(q=>q.id!==id);
+    qs.sort((a,b)=>a.order-b.order).forEach((q,i)=>q.order=i+1);
+    DB.savePreviewQs(qs);renderPQTable();toast('삭제되었습니다.','success');
+  });
+}
+
+function renderPQSchedTable(){
+  const scheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
+  const tbody=document.getElementById('pq-sched-tbody');
+  const empty=document.getElementById('pq-sched-empty');
+  if(scheds.length===0){tbody.innerHTML='';empty.style.display='block';document.getElementById('pq-sched-pagination').innerHTML='';return;}
+  empty.style.display='none';
+  scheds.forEach((s,i)=>s.order=scheds.length-i);
+  const start=(pqSchedPage-1)*SCHED_PER_PAGE;
+  const slice=scheds.slice(start,start+SCHED_PER_PAGE);
+  tbody.innerHTML=slice.map(s=>`
+    <tr>
+      <td>${s.order}</td>
+      <td>${s.displayText}</td>
+      <td>
+        <label class="toggle">
+          <input type="checkbox" ${s.isPreviewActive?'checked':''} onchange="togglePQSchedActive('${s.id}',this.checked)">
+          <div class="toggle-track"></div>
+        </label>
+      </td>
+    </tr>`).join('');
+  renderPagination('pq-sched-pagination',pqSchedPage,scheds.length,SCHED_PER_PAGE,'initAdminPQSchedPage');
+}
+
+function initAdminPQSchedPage(p){pqSchedPage=p;renderPQSchedTable();}
+
+function togglePQSchedActive(id,val){
+  const scheds=DB.schedules();
+  const s=scheds.find(x=>x.id===id);
+  if(s){s.isPreviewActive=val;DB.saveSchedules(scheds);}
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 17: ADMIN REVIEW QUESTIONS
+// ═══════════════════════════════════════════════════
+function initAdminRQ(){
+  setupAdmin('17','admin-rq');
+  renderRQTable();
+  const notice=DB.reviewNotice();
+  document.getElementById('rq-notice-display').textContent=notice;
+  document.getElementById('rq-notice-input').value=notice;
+}
+
+function renderRQTable(){
+  const qs=DB.reviewQs().sort((a,b)=>a.order-b.order);
+  const tbody=document.getElementById('rq-tbody');
+  const empty=document.getElementById('rq-empty');
+  if(qs.length===0){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=qs.map(q=>`
+    <tr>
+      <td>${q.order}</td>
+      <td><span id="rq-txt-${q.id}">${q.content}</span><input class="form-input" id="rq-inp-${q.id}" value="${q.content}" style="display:none;"></td>
+      <td><button class="btn btn-secondary btn-sm" id="rq-edit-${q.id}" onclick="toggleRQEdit('${q.id}')">수정</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRQ('${q.id}')">삭제</button></td>
+    </tr>`).join('');
+}
+
+function addRQ(){
+  const qs=DB.reviewQs();
+  qs.push({id:uid(),order:qs.length+1,content:'새 질문'});
+  DB.saveReviewQs(qs);renderRQTable();
+}
+
+function toggleRQEdit(id){
+  const btn=document.getElementById('rq-edit-'+id);
+  const txt=document.getElementById('rq-txt-'+id);
+  const inp=document.getElementById('rq-inp-'+id);
+  if(btn.textContent==='저장'){
+    const qs=DB.reviewQs();
+    const q=qs.find(x=>x.id===id);
+    if(q){q.content=inp.value.trim();DB.saveReviewQs(qs);}
+    txt.textContent=inp.value.trim();
+    txt.style.display='';inp.style.display='none';btn.textContent='수정';
+    toast('저장되었습니다.','success');
+  }else{txt.style.display='none';inp.style.display='';btn.textContent='저장';}
+}
+
+function deleteRQ(id){
+  confirm2('정말 삭제하시겠습니까?',()=>{
+    let qs=DB.reviewQs().filter(q=>q.id!==id);
+    qs.sort((a,b)=>a.order-b.order).forEach((q,i)=>q.order=i+1);
+    DB.saveReviewQs(qs);renderRQTable();toast('삭제되었습니다.','success');
+  });
+}
+
+let rqNoticeEditing=false;
+function toggleRQNotice(){
+  const display=document.getElementById('rq-notice-display');
+  const edit=document.getElementById('rq-notice-edit');
+  const btn=document.getElementById('rq-notice-btn');
+  if(rqNoticeEditing){
+    const val=document.getElementById('rq-notice-input').value;
+    DB.saveReviewNotice(val);
+    display.textContent=val;
+    display.style.display='';edit.style.display='none';btn.textContent='수정';
+    rqNoticeEditing=false;toast('저장되었습니다.','success');
+  }else{
+    display.style.display='none';edit.style.display='block';btn.textContent='저장';
+    rqNoticeEditing=true;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 18: ADMIN FAQ
+// ═══════════════════════════════════════════════════
+function initAdminFAQ(){
+  setupAdmin('18','admin-faq');
+  renderFAQAdmin();
+}
+
+function renderFAQAdmin(){
+  const faqs=DB.faq().sort((a,b)=>a.order-b.order);
+  const el=document.getElementById('faq-admin-list');
+  const empty=document.getElementById('faq-admin-empty');
+  if(faqs.length===0){el.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  el.innerHTML=faqs.map(f=>`
+    <div class="card" style="margin-bottom:10px;" id="faq-card-${f.id}">
+      <div class="flex-between mb8">
+        <div style="font-size:13px;font-weight:600;color:var(--txt2);">Q${f.order}.</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" id="faq-edit-${f.id}" onclick="toggleFAQEdit('${f.id}')">수정</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteFAQItem('${f.id}')">삭제</button>
+        </div>
+      </div>
+      <div id="faq-disp-q-${f.id}" style="font-size:14px;font-weight:500;color:var(--txt);margin-bottom:8px;">${f.question}</div>
+      <div id="faq-disp-a-${f.id}" style="font-size:13px;color:var(--txt2);">${f.answer||'(답변 없음)'}</div>
+      <div id="faq-edit-area-${f.id}" style="display:none;">
+        <div class="form-group mt8"><label class="form-label">질문</label><input class="form-input" id="faq-inp-q-${f.id}" value="${f.question}"></div>
+        <div class="form-group"><label class="form-label">답변</label><textarea class="form-textarea" id="faq-inp-a-${f.id}">${f.answer}</textarea></div>
+      </div>
+    </div>`).join('');
+}
+
+function addFAQ(){
+  const faqs=DB.faq();
+  faqs.push({id:uid(),order:faqs.length+1,question:'새 질문',answer:''});
+  DB.saveFaq(faqs);renderFAQAdmin();
+}
+
+function toggleFAQEdit(id){
+  const btn=document.getElementById('faq-edit-'+id);
+  const dispQ=document.getElementById('faq-disp-q-'+id);
+  const dispA=document.getElementById('faq-disp-a-'+id);
+  const editArea=document.getElementById('faq-edit-area-'+id);
+  if(btn.textContent==='저장'){
+    const faqs=DB.faq();
+    const f=faqs.find(x=>x.id===id);
+    if(f){
+      f.question=document.getElementById('faq-inp-q-'+id).value.trim();
+      f.answer=document.getElementById('faq-inp-a-'+id).value.trim();
+      DB.saveFaq(faqs);
+    }
+    dispQ.textContent=f.question;
+    dispA.textContent=f.answer||'(답변 없음)';
+    dispQ.style.display='';dispA.style.display='';editArea.style.display='none';btn.textContent='수정';
+    toast('저장되었습니다.','success');
+  }else{
+    dispQ.style.display='none';dispA.style.display='none';editArea.style.display='block';btn.textContent='저장';
+  }
+}
+
+function deleteFAQItem(id){
+  confirm2('정말 삭제하시겠습니까?',()=>{
+    let faqs=DB.faq().filter(f=>f.id!==id);
+    faqs.sort((a,b)=>a.order-b.order).forEach((f,i)=>f.order=i+1);
+    DB.saveFaq(faqs);renderFAQAdmin();toast('삭제되었습니다.','success');
+  });
+}
+
+
+// ═══════════════════════════════════════════════════
+//  ADMIN MAIN MANAGE (메인 관리)
+// ═══════════════════════════════════════════════════
+function initAdminMainManage(){
+  setupAdmin('mm','admin-main-manage');
+  renderMMGrid();
+}
+
+function setupAdmin(pageNum, activePage){
+  buildSidebar(pageNum, activePage);
+  buildTopNav(pageNum);
+}
+
+function renderMMGrid(){
+  const menuDefs=DB.get('mainMenuDefs',[
+    {id:'pv-view',label:'상작팅 Preview',icon:'👀',bg:''},
+    {id:'rv-view',label:'상작팅 Review',icon:'💬',bg:''},
+    {id:'instagram',label:'상호작용 Instagram',icon:'📸',bg:''},
+    {id:'pv-write',label:'상작팅 Preview 작성',icon:'✏️',bg:''},
+    {id:'rv-write',label:'상작팅 Review 작성',icon:'📝',bg:''},
+    {id:'faq',label:'상호작용 FAQ',icon:'❓',bg:''},
+  ]);
+  const grid=document.getElementById('mm-menu-grid');
+  if(!grid)return;
+  let html='';
+  menuDefs.forEach(function(m){
+    const bgStyle=m.bg?('background:url('+m.bg+') center/cover;'):'background:var(--bg4);';
+    const iconHtml=m.bg?'':'<span>'+m.icon+'</span>';
+    html+='<div class="card" style="margin-bottom:0;">'
+      +'<div style="'+bgStyle+'border-radius:var(--r2);aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:10px;border:1px solid var(--bd);overflow:hidden;">'+iconHtml+'</div>'
+      +'<div id="mm-label-'+m.id+'" style="font-size:13px;color:var(--txt);text-align:center;margin-bottom:8px;">'+m.label+'</div>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button class="btn btn-secondary btn-sm" style="flex:1;" id="mm-edit-btn-'+m.id+'" onclick="toggleMMEdit(&quot;'+m.id+'&quot;)">글 수정</button>'
+      +'<button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openMMBgPicker(&quot;'+m.id+'&quot;)">배경사진</button>'
+      +'<input type="file" id="mm-file-'+m.id+'" accept="image/*" style="display:none;" onchange="handleMMBg(&quot;'+m.id+'&quot;,this)">'
+      +'</div>'
+      +'<div id="mm-edit-area-'+m.id+'" style="display:none;margin-top:8px;">'
+      +'<input class="form-input" id="mm-inp-'+m.id+'" style="margin-bottom:6px;" value="'+m.label+'">'
+      +'<button class="btn btn-primary btn-sm btn-full" onclick="saveMMLabel(&quot;'+m.id+'&quot;)">저장</button>'
+      +'</div>'
+      +'</div>';
+  });
+  grid.innerHTML=html;
+}
+
+function toggleMMEdit(id){
+  const area=document.getElementById('mm-edit-area-'+id);
+  const btn=document.getElementById('mm-edit-btn-'+id);
+  const isOpen=area.style.display!=='none';
+  area.style.display=isOpen?'none':'block';
+  btn.textContent=isOpen?'글 수정':'닫기';
+}
+
+function saveMMLabel(id){
+  const inp=document.getElementById('mm-inp-'+id);
+  const val=inp.value.trim();
+  if(!val)return;
+  const defs=DB.get('mainMenuDefs',[]);
+  const m=defs.find(x=>x.id===id);
+  if(m){m.label=val;DB.set('mainMenuDefs',defs);}
+  document.getElementById('mm-label-'+id).textContent=val;
+  toggleMMEdit(id);
+  toast('저장되었습니다.','success');
+}
+
+function openMMBgPicker(id){
+  document.getElementById('mm-file-'+id).click();
+}
+
+function handleMMBg(id, input){
+  const file=input.files[0];
+  if(!file)return;
+  if(file.size>2*1024*1024){toast('이미지는 2MB 이하만 가능합니다.','error');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const defs=DB.get('mainMenuDefs',[]);
+    const m=defs.find(x=>x.id===id);
+    if(m){m.bg=e.target.result;DB.set('mainMenuDefs',defs);}
+    renderMMGrid();
+    toast('배경사진이 등록되었습니다.','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════════════════
+//  ADMIN APPLICANTS (standalone with schedule selector + excel)
+// ═══════════════════════════════════════════════════
+function initAdminApplicants(scheduleId){
+  setupAdmin('11','admin-applicants');
+  // Build schedule dropdown
+  const scheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
+  const menu=document.getElementById('app-schedule-menu');
+  if(menu){
+    if(scheds.length===0){menu.innerHTML='<div class="dropdown-empty">등록된 일정이 없습니다.</div>';}
+    else{menu.innerHTML=scheds.map(s=>`<div class="dropdown-item" onclick="selectAppSchedule('${s.id}','${s.displayText}')">${s.displayText}</div>`).join('');}
+  }
+  if(scheduleId){
+    currentSchedId=scheduleId;
+    const sched=scheds.find(s=>s.id===scheduleId);
+    const valEl=document.getElementById('app-schedule-val');
+    if(valEl&&sched)valEl.textContent=sched.displayText;
+    renderApplicants();
+  } else {
+    document.getElementById('applicants-content').innerHTML='';
+    const valEl=document.getElementById('app-schedule-val');
+    if(valEl)valEl.textContent='일정을 선택해주세요.';
+  }
+}
+
+function selectAppSchedule(id, text){
+  currentSchedId=id;
+  const valEl=document.getElementById('app-schedule-val');
+  if(valEl)valEl.textContent=text;
+  document.getElementById('app-schedule-btn').classList.remove('open');
+  document.getElementById('app-schedule-menu').classList.remove('open');
+  renderApplicants();
+}
+
+function downloadApplicantsExcel(){
+  const apps=DB.applications();
+  const scheds=DB.schedules();
+  if(apps.length===0){toast('다운로드할 데이터가 없습니다.','error');return;}
+  const header=['일정','성별','번호','이름','생년월일','직업','전화번호','신청일시'];
+  const rows=[header];
+  apps.forEach(function(a){
+    const sched=scheds.find(function(s){return s.id===a.scheduleId;});
+    const schedText=sched?sched.displayText:'알 수 없음';
+    const dt=new Date(a.submittedAt);
+    const dtStr=dt.getFullYear()+'.'
+      +String(dt.getMonth()+1).padStart(2,'0')+'.'
+      +String(dt.getDate()).padStart(2,'0')+' '
+      +String(dt.getHours()).padStart(2,'0')+':'
+      +String(dt.getMinutes()).padStart(2,'0');
+    rows.push([schedText,a.gender+'자',String(a.number)+'번',a.name,a.birthdate,a.occupation,a.phone,dtStr]);
+  });
+  const csvRows=rows.map(function(r){
+    return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');
+  });
+  const csvStr=csvRows.join('\r\n');
+  const bom='\uFEFF';
+  const blob=new Blob([bom+csvStr],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='신청자현황_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('엑셀 파일이 다운로드되었습니다.','success');
+}
+
+function selectAppSchedule(id, text){
+  currentSchedId=id;
+  const valEl=document.getElementById('app-schedule-val');
+  if(valEl)valEl.textContent=text;
+  document.getElementById('app-schedule-btn').classList.remove('open');
+  document.getElementById('app-schedule-menu').classList.remove('open');
+  renderApplicants();
+}
+
+
+const PAGE_BACK={
+  'preview-write':'main','preview-view':'main',
+  'review-write':'main','review-view':'main','faq':'main',
+  'admin-login':'main','admin-main':'main',
+  'admin-main-manage':'admin-main',
+  'admin-schedules':'admin-main',
+  'admin-applicants':'admin-main',
+  'admin-preview':'admin-main',
+  'admin-reviews':'admin-main',
+  'admin-instagram':'admin-main',
+  'admin-res':'admin-main',
+  'admin-pq':'admin-main',
+  'admin-rq':'admin-main',
+  'admin-faq':'admin-main',
+};
+
+function goBack(){
+  const back=PAGE_BACK[currentPage]||'main';
+  go(back);
+}
+
+// Browser native back/forward support
+window.addEventListener('popstate',function(e){
+  if(e.state&&e.state.page){
+    go(e.state.page,e.state.params||{},false);
+  } else {
+    go('main',{},false);
+  }
+});
+
+// Handle hash routing
+function handleHash(){
+  const hash=location.hash.replace('#/','');
+  const map={
+    '':'main','preview-write':'preview-write','preview-view':'preview-view',
+    'review-write':'review-write','review-view':'review-view','faq':'faq',
+    'admin':'admin-main','admin/schedules':'admin-schedules','admin/preview':'admin-preview',
+    'admin/reviews':'admin-reviews','admin/instagram':'admin-instagram',
+    'admin/res':'admin-res','admin/pq':'admin-pq','admin/rq':'admin-rq','admin/faq':'admin-faq',
+  };
+  const page=map[hash]||'main';
+  go(page);
+}
+
+// Expire check on load
+checkExpiredFiles();
+
+// Start (admin)
+if(DB.isAdmin()){
+  history.replaceState({page:'admin-main',params:{}},'','#admin-main');
+  go('admin-main',{},false);
+} else {
+  history.replaceState({page:'admin-login',params:{}},'','#admin-login');
+  go('admin-login',{},false);
+}
+
+</script>
+</body>
+</html>
