@@ -323,6 +323,31 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
     </div>
   </div>
 </div>
+<!-- 수기 입력 모달 -->
+<div class="modal-overlay" id="manualEntryModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeManualEntry()">✕</button>
+    <div class="modal-title">수기 신청자 입력</div>
+    <div class="form-group">
+      <label class="form-label">성별</label>
+      <div class="gender-group" style="margin-bottom:0;">
+        <button class="gender-btn" id="me-gender-male" onclick="selectMEGender('남')">남자</button>
+        <button class="gender-btn" id="me-gender-female" onclick="selectMEGender('여')">여자</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">번호</label>
+      <div id="me-num-grid" class="number-grid"></div>
+    </div>
+    <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="me-name" placeholder="이름을 입력하세요"></div>
+    <div class="form-group"><label class="form-label">생년월일 (8자리)</label><input class="form-input" id="me-birth" placeholder="예: 19990101" maxlength="8" inputmode="numeric"></div>
+    <div class="form-group"><label class="form-label">전화번호</label><input class="form-input" id="me-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" oninput="formatMEPhone(this)"></div>
+    <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="me-job" placeholder="직업을 입력하세요"></div>
+    <div id="me-err" class="text-err text-sm mt8" style="display:none;"></div>
+    <button class="btn btn-primary btn-full mt16" onclick="saveManualEntry()">저장</button>
+  </div>
+</div>
+
 <div class="datepick-modal" id="datePickModal">
   <div class="datepick-box">
     <div class="datepick-step active" id="dpStep1">
@@ -436,7 +461,10 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
         <div class="card">
           <div class="flex-between">
             <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">일정 선택</div>
-            <button class="btn btn-success btn-sm" onclick="downloadApplicantsExcel()">📥 전체 엑셀 다운로드</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary btn-sm" onclick="openManualEntry()" id="manual-entry-btn" style="display:none;">✏️ 수기 입력</button>
+              <button class="btn btn-success btn-sm" onclick="downloadApplicantsExcel()">📥 전체 엑셀 다운로드</button>
+            </div>
           </div>
           <div class="dropdown-wrap mt8">
             <div class="dropdown-trigger" id="app-schedule-btn" onclick="toggleDrop('app-schedule')">
@@ -1704,6 +1732,99 @@ function initAdminApplicants(scheduleId){
   renderApplicants();
 }
 
+
+// ═══════════════════════════════════════════════════
+//  수기 신청자 입력
+// ═══════════════════════════════════════════════════
+let meState={gender:null,number:null};
+
+function openManualEntry(){
+  if(!currentSchedId){toast('일정을 먼저 선택해주세요.','error');return;}
+  meState={gender:null,number:null};
+  document.getElementById('me-gender-male').classList.remove('selected');
+  document.getElementById('me-gender-female').classList.remove('selected');
+  document.getElementById('me-name').value='';
+  document.getElementById('me-birth').value='';
+  document.getElementById('me-phone').value='';
+  document.getElementById('me-job').value='';
+  document.getElementById('me-err').style.display='none';
+  document.getElementById('me-num-grid').innerHTML='<div class="empty-state" style="padding:8px;font-size:12px;">성별을 먼저 선택하세요</div>';
+  document.getElementById('manualEntryModal').classList.add('open');
+}
+
+function closeManualEntry(){
+  document.getElementById('manualEntryModal').classList.remove('open');
+}
+
+function selectMEGender(g){
+  meState.gender=g;
+  meState.number=null;
+  document.getElementById('me-gender-male').classList.toggle('selected',g==='남');
+  document.getElementById('me-gender-female').classList.toggle('selected',g==='여');
+  renderMENumGrid();
+}
+
+function renderMENumGrid(){
+  const taken=getTakenNumbers(currentSchedId,meState.gender);
+  let html='';
+  for(let i=1;i<=12;i++){
+    const isTaken=taken.includes(i);
+    const isSel=meState.number===i;
+    const cls='num-btn'+(isTaken?' taken':'')+(isSel?' selected':'');
+    const attrs=isTaken?'disabled':`onclick="selectMENum(${i})"`;
+    html+=`<button class="${cls}" ${attrs}>${i}번</button>`;
+  }
+  document.getElementById('me-num-grid').innerHTML=html;
+}
+
+function selectMENum(n){
+  meState.number=n;
+  renderMENumGrid();
+}
+
+function formatMEPhone(el){
+  let v=el.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>=8)v=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7);
+  else if(v.length>=4)v=v.slice(0,3)+'-'+v.slice(3);
+  el.value=v;
+}
+
+function saveManualEntry(){
+  const err=document.getElementById('me-err');
+  err.style.display='none';
+
+  const gender=meState.gender;
+  const number=meState.number;
+  const name=document.getElementById('me-name').value.trim();
+  const birth=document.getElementById('me-birth').value.trim();
+  const phone=document.getElementById('me-phone').value.trim();
+  const job=document.getElementById('me-job').value.trim();
+
+  if(!gender){err.textContent='성별을 선택해주세요.';err.style.display='block';return;}
+  if(!number){err.textContent='번호를 선택해주세요.';err.style.display='block';return;}
+  if(!name){err.textContent='이름을 입력해주세요.';err.style.display='block';return;}
+  if(birth.length!==8){err.textContent='생년월일을 8자리로 입력해주세요.';err.style.display='block';return;}
+  if(phone.length<12){err.textContent='전화번호를 입력해주세요.';err.style.display='block';return;}
+  if(!job){err.textContent='직업을 입력해주세요.';err.style.display='block';return;}
+
+  // 중복 번호 재확인
+  const taken=getTakenNumbers(currentSchedId,gender);
+  if(taken.includes(number)){err.textContent='이미 신청된 번호입니다.';err.style.display='block';renderMENumGrid();return;}
+
+  const now=Date.now();
+  const app={
+    id:uid(),scheduleId:currentSchedId,gender,number,name,
+    birthdate:birth,phone,occupation:job,
+    fileName:'',fileData:'',fileSubmittedAt:now,submittedAt:now
+  };
+  const apps=DB.applications();
+  apps.push(app);
+  DB.saveApplications(apps);
+  closeManualEntry();
+  renderApplicants();
+  toast('수기 입력이 완료되었습니다.','success');
+}
+
 function renderApplicants(){
   if(!currentSchedId){
     document.getElementById('applicants-content').innerHTML='<div class="empty-state">일정을 선택해주세요.</div>';
@@ -2426,6 +2547,9 @@ function selectAppSchedule(id, text){
   if(valEl)valEl.textContent=text;
   document.getElementById('app-schedule-btn').classList.remove('open');
   document.getElementById('app-schedule-menu').classList.remove('open');
+  // 수기 입력 버튼 표시
+  const btn=document.getElementById('manual-entry-btn');
+  if(btn)btn.style.display='';
   renderApplicants();
 }
 
@@ -2469,6 +2593,9 @@ function selectAppSchedule(id, text){
   if(valEl)valEl.textContent=text;
   document.getElementById('app-schedule-btn').classList.remove('open');
   document.getElementById('app-schedule-menu').classList.remove('open');
+  // 수기 입력 버튼 표시
+  const btn=document.getElementById('manual-entry-btn');
+  if(btn)btn.style.display='';
   renderApplicants();
 }
 
