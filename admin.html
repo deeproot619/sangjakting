@@ -1555,12 +1555,10 @@ function renderCalendar(){
   let html=dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
   for(let i=0;i<firstDay;i++)html+=`<div class="cal-day empty"></div>`;
   for(let d=1;d<=daysInMonth;d++){
-    const isPast=new Date(year,month-1,d)<new Date(todayY,todayM-1,todayD);
     const isToday=year===todayY&&month===todayM&&d===todayD;
     const isSel=dpState.selectedY===year&&dpState.selectedM===month&&dpState.selectedD===d;
-    const cls=[isToday?'today':'',isSel?'selected':'',isPast?'disabled':''].filter(Boolean).join(' ');
-    const clickAct=isPast?'':`onclick="selectCalDay(${d})"`;
-    html+=`<div class="cal-day ${cls}" ${clickAct}>${d}</div>`;
+    const cls=[isToday?'today':'',isSel?'selected':''].filter(Boolean).join(' ');
+    html+=`<div class="cal-day ${cls}" onclick="selectCalDay(${d})">${d}</div>`;
   }
   document.getElementById('calGrid').innerHTML=html;
 }
