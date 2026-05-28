@@ -752,6 +752,8 @@ const DB={
   saveReviewQs:v=>DB.set('reviewQs',v),
   reviewNotice:()=>DB.get('reviewNotice','리뷰를 작성해주신 분들께 드리는 선물은 인스타 공지를 확인해 주세요'),
   saveReviewNotice:v=>DB.set('reviewNotice',v),
+  noticePopup:()=>DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true}),
+  saveNoticePopup:v=>DB.set('noticePopup',v),
   faq:()=>DB.get('faq',[
     {id:'f1',order:1,question:'상작팅 타임테이블은 어떻게 되나요?',answer:''},
     {id:'f2',order:2,question:'매칭 결과는 소개팅 후 언제 알려주시나요?',answer:''}
@@ -881,8 +883,9 @@ const PAGES={
   'admin-pq':'page-admin-pq',
   'admin-rq':'page-admin-rq',
   'admin-faq':'page-admin-faq',
+  'admin-popup':'page-admin-popup',
 };
-const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq'];
+const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq','admin-popup'];
 
 let currentPage='main';
 function go(page,params={},pushState=true){
@@ -915,6 +918,7 @@ function go(page,params={},pushState=true){
   else if(page==='admin-res')initAdminRes();
   else if(page==='admin-main-manage')initAdminMainManage();
   else if(page==='admin-faq')initAdminFAQ();
+  else if(page==='admin-popup')initAdminPopup();
 }
 
 // ═══════════════════════════════════════════════════
@@ -947,6 +951,7 @@ function buildSidebar(pageNum,activePage){
     {label:'Instagram 링크 관리',page:'admin-instagram'},
     {label:'예약신청 안내문구 관리',page:'admin-res'},
     {label:'FAQ 관리',page:'admin-faq'},
+    {label:'팝업 관리',page:'admin-popup'},
   ];
   let html=`<div class="sidebar-logo">상호작용</div>`;
   html+=`<div class="sidebar-label">관리자</div>`;
@@ -1626,6 +1631,7 @@ function initAdminMain(){
     {icon:'📸',label:'Instagram 링크 관리',page:'admin-instagram'},
     {icon:'📝',label:'예약신청 안내문구 관리',page:'admin-res'},
     {icon:'🗂',label:'FAQ 관리',page:'admin-faq'},
+    {icon:'📢',label:'팝업 관리',page:'admin-popup'},
   ];
   document.getElementById('admin-main-grid').innerHTML=items.map(it=>`
     <div class="admin-card-item" onclick="go('${it.page}')">
@@ -2442,6 +2448,113 @@ function toggleRQNotice(){
 }
 
 // ═══════════════════════════════════════════════════
+//  팝업 관리
+// ═══════════════════════════════════════════════════
+function initAdminPopup(){
+  setupAdmin('popup','admin-popup');
+  const popup=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
+
+  const el=(id)=>document.getElementById(id);
+  el('popup-enabled-toggle').checked=popup.enabled||false;
+  el('popup-text-enabled').checked=popup.textEnabled!==false;
+  el('popup-img-enabled').checked=popup.imageEnabled!==false;
+  el('popup-text-input').value=popup.text||'';
+
+  if(popup.imageData){
+    el('popup-img-preview-img').src=popup.imageData;
+    el('popup-img-preview-img').style.display='';
+    el('popup-img-none-txt').style.display='none';
+  } else {
+    el('popup-img-preview-img').style.display='none';
+    el('popup-img-none-txt').style.display='';
+  }
+}
+
+function savePopupSetting(){
+  const el=(id)=>document.getElementById(id);
+  const current=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
+  const updated={
+    ...current,
+    enabled:el('popup-enabled-toggle').checked,
+    textEnabled:el('popup-text-enabled').checked,
+    imageEnabled:el('popup-img-enabled').checked,
+    text:el('popup-text-input').value,
+  };
+  DB.set('noticePopup',updated);
+}
+
+function handlePopupImg(input){
+  const file=input.files[0];
+  if(!file)return;
+  if(file.size>3*1024*1024){toast('이미지는 3MB 이하만 가능합니다.','error');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const data=e.target.result;
+    const el=(id)=>document.getElementById(id);
+    el('popup-img-preview-img').src=data;
+    el('popup-img-preview-img').style.display='';
+    el('popup-img-none-txt').style.display='none';
+    const current=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
+    DB.set('noticePopup',{...current,imageData:data});
+    toast('사진이 등록되었습니다.','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePopupImg(){
+  confirm2('사진을 삭제하시겠습니까?',()=>{
+    const el=(id)=>document.getElementById(id);
+    el('popup-img-preview-img').src='';
+    el('popup-img-preview-img').style.display='none';
+    el('popup-img-none-txt').style.display='';
+    const current=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
+    DB.set('noticePopup',{...current,imageData:''});
+    toast('사진이 삭제되었습니다.','success');
+  });
+}
+
+function previewPopup(){
+  const el=(id)=>document.getElementById(id);
+  const text=el('popup-text-input').value;
+  const textEnabled=el('popup-text-enabled').checked;
+  const imgSrc=el('popup-img-preview-img').src;
+  const imgEnabled=el('popup-img-enabled').checked;
+
+  if(!text&&!imgSrc){toast('글 또는 사진을 먼저 등록해주세요.','error');return;}
+
+  // 미리보기 팝업 생성
+  const old=document.getElementById('admin-preview-popup');
+  if(old)old.remove();
+
+  const showText=textEnabled&&text;
+  const showImg=imgEnabled&&imgSrc&&!imgSrc.endsWith('admin.html');
+
+  const overlay=document.createElement('div');
+  overlay.id='admin-preview-popup';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML=`
+    <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,.15);border-radius:10px;width:min(700px,96vw);max-height:90vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.8);display:flex;flex-direction:column;">
+      <div style="background:#0f0f1c;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1);">
+        <div style="display:flex;gap:7px;"><div style="width:12px;height:12px;border-radius:50%;background:#ff5f57;"></div><div style="width:12px;height:12px;border-radius:50%;background:#febc2e;"></div><div style="width:12px;height:12px;border-radius:50%;background:#28c840;"></div></div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4);">공지사항 (미리보기)</div>
+        <button onclick="document.getElementById('admin-preview-popup').remove()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;">✕</button>
+      </div>
+      <div style="display:flex;flex:1;overflow:hidden;min-height:260px;">
+        ${showImg?`<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;${showText?'border-right:1px solid rgba(255,255,255,.08);':''}"><img src="${imgSrc}" style="max-width:100%;max-height:260px;border-radius:8px;object-fit:contain;" alt=""></div>`:''}
+        ${showText?`<div style="flex:1;padding:20px;overflow-y:auto;font-size:14px;color:#f0f0f8;line-height:1.75;white-space:pre-line;">${text}</div>`:''}
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.45);">
+          <input type="checkbox" style="accent-color:#c9a96e;width:14px;height:14px;"> 오늘 하루 그만보기
+        </label>
+        <button onclick="document.getElementById('admin-preview-popup').remove()" style="background:rgba(201,169,110,.15);border:1px solid #c9a96e;color:#c9a96e;padding:6px 18px;border-radius:6px;font-size:13px;cursor:pointer;">닫기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+
+// ═══════════════════════════════════════════════════
 //  PAGE 18: ADMIN FAQ
 // ═══════════════════════════════════════════════════
 function initAdminFAQ(){
@@ -2692,6 +2805,7 @@ const PAGE_BACK={
   'admin-pq':'admin-main',
   'admin-rq':'admin-main',
   'admin-faq':'admin-main',
+  'admin-popup':'admin-main',
 };
 
 function goBack(){
@@ -2744,5 +2858,74 @@ if(_sb){
 }
 
 </script>
+
+<!-- ────── PAGE: ADMIN POPUP ────── -->
+<div class="page" id="page-admin-popup">
+  <div class="admin-wrap">
+    <div class="admin-sidebar" id="sidebar-popup"></div>
+    <div class="admin-main">
+      <div class="admin-topnav" id="topnav-popup"></div>
+      <div class="admin-content">
+        <div class="page-title">팝업 관리</div>
+
+        <!-- 팝업 활성화 -->
+        <div class="card">
+          <div class="flex-between">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">팝업 활성화</div>
+            <label class="toggle">
+              <input type="checkbox" id="popup-enabled-toggle" onchange="savePopupSetting()">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div style="font-size:12px;color:var(--txt3);margin-top:8px;">활성화하면 일반 사용자 메인 페이지 접속 시 팝업이 표시됩니다.</div>
+        </div>
+
+        <!-- 2분할 편집 영역 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+          <!-- 왼쪽: 사진 -->
+          <div class="card">
+            <div class="flex-between mb8">
+              <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">🖼 사진</div>
+              <label class="toggle" title="사진 활성화">
+                <input type="checkbox" id="popup-img-enabled" onchange="savePopupSetting()">
+                <div class="toggle-track"></div>
+              </label>
+            </div>
+            <div id="popup-img-preview" style="background:var(--bg4);border-radius:var(--r2);min-height:200px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;overflow:hidden;border:1px solid var(--bd);">
+              <img id="popup-img-preview-img" src="" style="max-width:100%;max-height:220px;object-fit:contain;display:none;" alt="">
+              <span id="popup-img-none-txt" style="font-size:13px;color:var(--txt3);">업로드된 사진 없음</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('popup-img-file').click()">📁 사진 업로드</button>
+              <button class="btn btn-danger btn-sm" onclick="removePopupImg()">삭제</button>
+            </div>
+            <input type="file" id="popup-img-file" accept="image/*" style="display:none;" onchange="handlePopupImg(this)">
+          </div>
+
+          <!-- 오른쪽: 글 -->
+          <div class="card">
+            <div class="flex-between mb8">
+              <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">📝 글 내용</div>
+              <label class="toggle" title="글 활성화">
+                <input type="checkbox" id="popup-text-enabled" onchange="savePopupSetting()">
+                <div class="toggle-track"></div>
+              </label>
+            </div>
+            <textarea class="form-textarea" id="popup-text-input" placeholder="팝업에 표시할 글을 입력하세요." style="min-height:260px;" oninput="savePopupSetting()"></textarea>
+          </div>
+        </div>
+
+        <!-- 미리보기 버튼 -->
+        <div class="card" style="text-align:center;">
+          <button class="btn btn-secondary" onclick="previewPopup()">👁 팝업 미리보기</button>
+          <div style="font-size:12px;color:var(--txt3);margin-top:8px;">저장은 자동으로 됩니다.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

@@ -315,6 +315,38 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 <body>
 <!-- ────── GLOBAL ELEMENTS ────── -->
 <div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ────── 공지 팝업 ────── -->
+<div id="notice-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;padding:20px;">
+  <div id="notice-popup" style="background:#1a1a2e;border:1px solid rgba(255,255,255,.15);border-radius:10px;width:min(700px,96vw);max-height:90vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.8);display:flex;flex-direction:column;">
+    <!-- 타이틀바 -->
+    <div style="background:#0f0f1c;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0;">
+      <div style="display:flex;gap:7px;align-items:center;">
+        <div style="width:12px;height:12px;border-radius:50%;background:#ff5f57;cursor:pointer;" onclick="closeNoticePopup()"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:#febc2e;"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:#28c840;"></div>
+      </div>
+      <div style="font-size:12px;color:rgba(255,255,255,.4);">공지사항</div>
+      <button onclick="closeNoticePopup()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;padding:0 4px;">✕</button>
+    </div>
+    <!-- 컨텐츠 (2분할) -->
+    <div id="notice-popup-body" style="display:flex;flex:1;overflow:hidden;min-height:300px;">
+      <div id="notice-popup-img-area" style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;border-right:1px solid rgba(255,255,255,.08);">
+        <img id="notice-popup-img" src="" style="max-width:100%;max-height:100%;border-radius:8px;object-fit:contain;" alt="">
+      </div>
+      <div id="notice-popup-text-area" style="flex:1;padding:20px;overflow-y:auto;font-size:14px;color:#f0f0f8;line-height:1.75;white-space:pre-line;"></div>
+    </div>
+    <!-- 하단 -->
+    <div style="padding:10px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.45);user-select:none;">
+        <input type="checkbox" id="popup-hide-today" style="accent-color:#c9a96e;width:14px;height:14px;cursor:pointer;">
+        오늘 하루 그만보기
+      </label>
+      <button onclick="closeNoticePopup()" style="background:rgba(201,169,110,.15);border:1px solid #c9a96e;color:#c9a96e;padding:6px 18px;border-radius:6px;font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-box">
     <p class="confirm-msg" id="confirmMsg">정말 삭제하시겠습니까?</p>
@@ -681,6 +713,8 @@ const DB={
   saveReviewQs:v=>DB.set('reviewQs',v),
   reviewNotice:()=>DB.get('reviewNotice','리뷰를 작성해주신 분들께 드리는 선물은 인스타 공지를 확인해 주세요'),
   saveReviewNotice:v=>DB.set('reviewNotice',v),
+  noticePopup:()=>DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true}),
+  saveNoticePopup:v=>DB.set('noticePopup',v),
   faq:()=>DB.get('faq',[
     {id:'f1',order:1,question:'상작팅 타임테이블은 어떻게 되나요?',answer:''},
     {id:'f2',order:2,question:'매칭 결과는 소개팅 후 언제 알려주시나요?',answer:''}
@@ -824,6 +858,56 @@ function getScheduleQuestions(scheduleId){
   return DB.previewQs().sort((a,b)=>a.order-b.order);
 }
 
+// ── 공지 팝업 ──
+function showNoticePopup(){
+  const popup=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
+  if(!popup.enabled)return;
+  // 오늘 하루 그만보기 체크
+  const today=new Date();
+  const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  if(localStorage.getItem('sjt_popupHideDate')===todayStr)return;
+  // 체크박스 초기화
+  setTimeout(()=>{const chk=document.getElementById('popup-hide-today');if(chk)chk.checked=false;},50);
+  const overlay=document.getElementById('notice-popup-overlay');
+  const textArea=document.getElementById('notice-popup-text-area');
+  const imgArea=document.getElementById('notice-popup-img-area');
+  const img=document.getElementById('notice-popup-img');
+
+  const showText=popup.textEnabled&&popup.text;
+  const showImg=popup.imageEnabled&&popup.imageData;
+
+  if(!showText&&!showImg)return;
+
+  textArea.textContent=popup.text||'';
+  textArea.style.display=showText?'':'none';
+  imgArea.style.display=showImg?'':'none';
+  if(showImg)img.src=popup.imageData;
+
+  // 한쪽만 있을 때 border 제거
+  if(!showText||!showImg){
+    imgArea.style.borderRight='none';
+    imgArea.style.flex=showImg?'1':'0';
+    textArea.style.flex=showText?'1':'0';
+  } else {
+    imgArea.style.borderRight='1px solid rgba(255,255,255,.08)';
+    imgArea.style.flex='1';
+    textArea.style.flex='1';
+  }
+
+  overlay.style.display='flex';
+}
+
+function closeNoticePopup(){
+  const chk=document.getElementById('popup-hide-today');
+  if(chk&&chk.checked){
+    const today=new Date();
+    const dateStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    localStorage.setItem('sjt_popupHideDate',dateStr);
+  }
+  document.getElementById('notice-popup-overlay').style.display='none';
+}
+
+
 // 외부 링크 열기
 function openExtLink(url){
   if(!url){toast('등록된 링크가 없습니다.','error');return;}
@@ -907,6 +991,8 @@ function initMain(){
 
   // phone input
   document.getElementById('m-phone').oninput=formatPhone;
+  // 공지 팝업
+  showNoticePopup();
 }
 
 function selectMainSchedule(id,text){
