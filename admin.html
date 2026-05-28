@@ -155,7 +155,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .preview-content{background:var(--bg4);border-radius:var(--r2);padding:18px;margin-top:14px;}
 .pv-q{font-size:16px;color:var(--gold);font-weight:600;margin-bottom:4px;margin-top:16px;}
 .pv-q:first-child{margin-top:0;}
-.pv-a{font-size:14px;color:#ffffff;line-height:1.65;}
+.pv-a{font-size:14px;color:#ffffff;line-height:1.65;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r2);padding:10px 14px;margin-top:4px;white-space:pre-wrap;}
 .pv-empty{text-align:center;padding:24px;color:var(--txt3);font-size:13px;}
 
 /* ── REVIEW CARDS ── */
@@ -770,6 +770,19 @@ const DB={
 // ═══════════════════════════════════════════════════
 //  UTILITIES
 // ═══════════════════════════════════════════════════
+
+// ── 한글 IME 조합 보호 ──
+let _isComposing=false;
+document.addEventListener('compositionstart',()=>{_isComposing=true;});
+document.addEventListener('compositionend',()=>{
+  _isComposing=false;
+  // 조합 완료 후 전화번호 포맷 재적용
+  const activeEl=document.activeElement;
+  if(activeEl&&activeEl.id&&activeEl.id.includes('phone')){
+    formatPhone({target:activeEl});
+  }
+});
+
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 const DAYS=['일','월','화','수','목','금','토'];
 function getDayKr(y,m,d){return DAYS[new Date(y,m-1,d).getDay()];}
@@ -838,6 +851,7 @@ function formatPartDate(s){
 
 // phone format
 function formatPhone(e){
+  if(_isComposing)return; // 한글 조합 중 실행 안 함
   let v=e.target.value.replace(/\D/g,'').slice(0,11);
   if(v.length>=8)v=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7);
   else if(v.length>=4)v=v.slice(0,3)+'-'+v.slice(3);
@@ -2474,7 +2488,7 @@ function initAdminPopup(){
   }
 }
 
-function savePopupSetting(){
+function savePopupSetting(){if(_isComposing)return;
   const el=(id)=>document.getElementById(id);
   const current=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
   const updated={
@@ -2916,7 +2930,7 @@ if(_sb){
                 <div class="toggle-track"></div>
               </label>
             </div>
-            <textarea class="form-textarea" id="popup-text-input" placeholder="팝업에 표시할 글을 입력하세요." style="min-height:260px;" oninput="savePopupSetting()"></textarea>
+            <textarea class="form-textarea" id="popup-text-input" lang="ko" placeholder="팝업에 표시할 글을 입력하세요." style="min-height:260px;" oninput="savePopupSetting()"></textarea>
           </div>
         </div>
 

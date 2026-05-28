@@ -155,7 +155,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .preview-content{background:var(--bg4);border-radius:var(--r2);padding:18px;margin-top:14px;}
 .pv-q{font-size:16px;color:var(--gold);font-weight:600;margin-bottom:4px;margin-top:16px;}
 .pv-q:first-child{margin-top:0;}
-.pv-a{font-size:14px;color:#ffffff;line-height:1.65;}
+.pv-a{font-size:14px;color:#ffffff;line-height:1.65;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r2);padding:10px 14px;margin-top:4px;white-space:pre-wrap;}
 .pv-empty{text-align:center;padding:24px;color:var(--txt3);font-size:13px;}
 
 /* ── REVIEW CARDS ── */
@@ -403,8 +403,8 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="m-job" placeholder="직업을 입력하세요"></div>
       <div class="form-group">
         <label class="form-label">파일 첨부</label>
-        <div class="file-area" id="fileArea" onclick="document.getElementById('fileInput').click()">
-          <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFile(this)">
+        <div class="file-area" id="fileArea">
+          <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFile(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
           <div class="file-icon">📎</div>
           <div class="file-area-txt" id="fileAreaTxt">파일을 선택하거나 여기를 클릭하세요</div>
         </div>
@@ -727,6 +727,19 @@ const DB={
 // ═══════════════════════════════════════════════════
 //  UTILITIES
 // ═══════════════════════════════════════════════════
+
+// ── 한글 IME 조합 보호 ──
+let _isComposing=false;
+document.addEventListener('compositionstart',()=>{_isComposing=true;});
+document.addEventListener('compositionend',()=>{
+  _isComposing=false;
+  // 조합 완료 후 전화번호 포맷 재적용
+  const activeEl=document.activeElement;
+  if(activeEl&&activeEl.id&&activeEl.id.includes('phone')){
+    formatPhone({target:activeEl});
+  }
+});
+
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 const DAYS=['일','월','화','수','목','금','토'];
 function getDayKr(y,m,d){return DAYS[new Date(y,m-1,d).getDay()];}
@@ -795,6 +808,7 @@ function formatPartDate(s){
 
 // phone format
 function formatPhone(e){
+  if(_isComposing)return; // 한글 조합 중 실행 안 함
   let v=e.target.value.replace(/\D/g,'').slice(0,11);
   if(v.length>=8)v=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7);
   else if(v.length>=4)v=v.slice(0,3)+'-'+v.slice(3);
@@ -1222,7 +1236,7 @@ function renderPWForm(){
   let html='<div class="card-hd">Preview 작성</div>';
   qs.forEach(q=>{
     html+=`<div class="form-group">
-      <label class="form-label">Q${q.order}. ${q.content}</label>
+      <label class="form-label" style="font-size:15px;color:var(--gold);font-weight:600;">Q${q.order}. ${q.content}</label>
       <textarea class="form-textarea" id="pw-ans-${q.id}" placeholder="내용을 입력하세요"></textarea>
     </div>`;
   });
@@ -1425,9 +1439,11 @@ function renderRWForm(){
   const qs=DB.reviewQs().sort((a,b)=>a.order-b.order);
   const area=document.getElementById('rw-form-area');
   let html='<div class="card-hd">리뷰 작성</div>';
-  qs.forEach(q=>{
+  const rwEmojis=['💬','✨','🌟','💫','🎯','🌸','💝','🎀','🌙','⭐'];
+  qs.forEach((q,qi)=>{
+    const em=rwEmojis[qi%rwEmojis.length];
     html+=`<div class="form-group">
-      <label class="form-label">Q${q.order}. ${q.content}</label>
+      <label class="form-label" style="font-size:15px;color:var(--gold);font-weight:600;">${em} ${q.content}</label>
       <textarea class="form-textarea" id="rw-ans-${q.id}" placeholder="내용을 입력하세요" oninput="checkRwSubmit()"></textarea>
     </div>`;
   });
