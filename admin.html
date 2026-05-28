@@ -2306,7 +2306,7 @@ function renderPQTable(){
   tbody.innerHTML=qs.map(q=>`
     <tr id="pq-row-${q.id}">
       <td>${q.order}</td>
-      <td><span id="pq-txt-${q.id}">${q.content}</span><input class="form-input" id="pq-inp-${q.id}" value="${q.content}" style="display:none;"></td>
+      <td id="pq-cell-${q.id}"><span id="pq-txt-${q.id}">${q.content}</span></td>
       <td><button class="btn btn-secondary btn-sm" id="pq-edit-${q.id}" onclick="togglePQEdit('${q.id}')">수정</button></td>
       <td><button class="btn btn-danger btn-sm" onclick="deletePQ('${q.id}')">삭제</button></td>
     </tr>`).join('');
@@ -2321,21 +2321,31 @@ function addPQ(){
 function togglePQEdit(id){
   const btn=document.getElementById('pq-edit-'+id);
   const txt=document.getElementById('pq-txt-'+id);
-  const inp=document.getElementById('pq-inp-'+id);
+  const cell=document.getElementById('pq-cell-'+id);
+  const existing=document.getElementById('pq-inp-'+id);
   if(btn.textContent==='저장'){
+    if(!existing)return;
+    const val=existing.value.trim();
     const qs=DB.previewQs();
     const q=qs.find(x=>x.id===id);
-    if(q){q.content=inp.value.trim();DB.savePreviewQs(qs);}
-    txt.textContent=inp.value.trim();
-    txt.style.display='';inp.style.display='none';btn.textContent='수정';
+    if(q){q.content=val;DB.savePreviewQs(qs);}
+    txt.textContent=val;
+    txt.style.display='';
+    existing.remove();
+    btn.textContent='수정';
     toast('저장되었습니다.','success');
   }else{
     txt.style.display='none';
-    inp.style.display='';
-    inp.setAttribute('lang','ko');
+    const inp=document.createElement('input');
+    inp.className='form-input';
+    inp.id='pq-inp-'+id;
+    inp.value=txt.textContent;
+    inp.lang='ko';
     inp.setAttribute('inputmode','text');
+    inp.setAttribute('autocomplete','off');
+    cell.appendChild(inp);
     btn.textContent='저장';
-    setTimeout(()=>inp.focus(),50);
+    requestAnimationFrame(()=>inp.focus());
   }
 }
 
@@ -2421,7 +2431,7 @@ function renderRQTable(){
   tbody.innerHTML=qs.map(q=>`
     <tr>
       <td>${q.order}</td>
-      <td><span id="rq-txt-${q.id}">${q.content}</span><input class="form-input" id="rq-inp-${q.id}" value="${q.content}" style="display:none;"></td>
+      <td id="rq-cell-${q.id}"><span id="rq-txt-${q.id}">${q.content}</span></td>
       <td><button class="btn btn-secondary btn-sm" id="rq-edit-${q.id}" onclick="toggleRQEdit('${q.id}')">수정</button></td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteRQ('${q.id}')">삭제</button></td>
     </tr>`).join('');
@@ -2436,21 +2446,31 @@ function addRQ(){
 function toggleRQEdit(id){
   const btn=document.getElementById('rq-edit-'+id);
   const txt=document.getElementById('rq-txt-'+id);
-  const inp=document.getElementById('rq-inp-'+id);
+  const cell=document.getElementById('rq-cell-'+id);
+  const existing=document.getElementById('rq-inp-'+id);
   if(btn.textContent==='저장'){
+    if(!existing)return;
+    const val=existing.value.trim();
     const qs=DB.reviewQs();
     const q=qs.find(x=>x.id===id);
-    if(q){q.content=inp.value.trim();DB.saveReviewQs(qs);}
-    txt.textContent=inp.value.trim();
-    txt.style.display='';inp.style.display='none';btn.textContent='수정';
+    if(q){q.content=val;DB.saveReviewQs(qs);}
+    txt.textContent=val;
+    txt.style.display='';
+    existing.remove();
+    btn.textContent='수정';
     toast('저장되었습니다.','success');
   }else{
     txt.style.display='none';
-    inp.style.display='';
-    inp.setAttribute('lang','ko');
+    const inp=document.createElement('input');
+    inp.className='form-input';
+    inp.id='rq-inp-'+id;
+    inp.value=txt.textContent;
+    inp.lang='ko';
     inp.setAttribute('inputmode','text');
+    inp.setAttribute('autocomplete','off');
+    cell.appendChild(inp);
     btn.textContent='저장';
-    setTimeout(()=>inp.focus(),50);
+    requestAnimationFrame(()=>inp.focus());
   }
 }
 
@@ -2643,10 +2663,15 @@ function toggleFAQEdit(id){
     toast('저장되었습니다.','success');
   }else{
     dispQ.style.display='none';dispA.style.display='none';editArea.style.display='block';btn.textContent='저장';
-    setTimeout(()=>{
+    requestAnimationFrame(()=>{
       const qInp=document.getElementById('faq-inp-q-'+id);
-      if(qInp){qInp.setAttribute('lang','ko');qInp.setAttribute('inputmode','text');qInp.focus();}
-    },50);
+      if(qInp){
+        qInp.lang='ko';
+        qInp.setAttribute('inputmode','text');
+        qInp.setAttribute('autocomplete','off');
+        qInp.focus();
+      }
+    });
   }
 }
 
