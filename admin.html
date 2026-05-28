@@ -340,10 +340,10 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <label class="form-label">번호</label>
       <div id="me-num-grid" class="number-grid"></div>
     </div>
-    <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="me-name" placeholder="이름을 입력하세요"></div>
+    <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="me-name" placeholder="이름을 입력하세요" lang="ko" inputmode="text"></div>
     <div class="form-group"><label class="form-label">생년월일 (8자리)</label><input class="form-input" id="me-birth" placeholder="예: 19990101" maxlength="8" inputmode="numeric"></div>
     <div class="form-group"><label class="form-label">전화번호</label><input class="form-input" id="me-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric" oninput="formatMEPhone(this)"></div>
-    <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="me-job" placeholder="직업을 입력하세요"></div>
+    <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="me-job" placeholder="직업을 입력하세요" lang="ko" inputmode="text"></div>
     <div id="me-err" class="text-err text-sm mt8" style="display:none;"></div>
     <button class="btn btn-primary btn-full mt16" onclick="saveManualEntry()">저장</button>
   </div>
@@ -601,7 +601,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
           <div class="card-hd">링크 등록</div>
           <div class="input-row">
             <div class="form-group">
-              <input class="form-input" id="ig-input" placeholder="인스타그램 링크 주소를 입력하세요">
+              <input class="form-input" id="ig-input" placeholder="인스타그램 링크 주소를 입력하세요" inputmode="url">
             </div>
             <button class="btn btn-primary" onclick="saveInstagram()">등록</button>
           </div>
@@ -2246,8 +2246,8 @@ function renderResParts(){
       <div><span style="color:var(--txt2);">계좌번호:</span> <span class="text-gold">${rm.accountNumber}</span></div>
     </div>
     <div id="res2-edit" style="display:none;">
-      <div class="form-group"><label class="form-label">은행명</label><input class="form-input" id="res2-bank" value="${rm.bankName}"></div>
-      <div class="form-group"><label class="form-label">예금주</label><input class="form-input" id="res2-holder" value="${rm.accountHolder}"></div>
+      <div class="form-group"><label class="form-label">은행명</label><input class="form-input" id="res2-bank" lang="ko" inputmode="text" value="${rm.bankName}"></div>
+      <div class="form-group"><label class="form-label">예금주</label><input class="form-input" id="res2-holder" lang="ko" inputmode="text" value="${rm.accountHolder}"></div>
       <div class="form-group"><label class="form-label">계좌번호</label><input class="form-input" id="res2-num" value="${rm.accountNumber}"></div>
     </div>`;
   // Part 3
@@ -2329,7 +2329,14 @@ function togglePQEdit(id){
     txt.textContent=inp.value.trim();
     txt.style.display='';inp.style.display='none';btn.textContent='수정';
     toast('저장되었습니다.','success');
-  }else{txt.style.display='none';inp.style.display='';btn.textContent='저장';}
+  }else{
+    txt.style.display='none';
+    inp.style.display='';
+    inp.setAttribute('lang','ko');
+    inp.setAttribute('inputmode','text');
+    btn.textContent='저장';
+    setTimeout(()=>inp.focus(),50);
+  }
 }
 
 function deletePQ(id){
@@ -2437,7 +2444,14 @@ function toggleRQEdit(id){
     txt.textContent=inp.value.trim();
     txt.style.display='';inp.style.display='none';btn.textContent='수정';
     toast('저장되었습니다.','success');
-  }else{txt.style.display='none';inp.style.display='';btn.textContent='저장';}
+  }else{
+    txt.style.display='none';
+    inp.style.display='';
+    inp.setAttribute('lang','ko');
+    inp.setAttribute('inputmode','text');
+    btn.textContent='저장';
+    setTimeout(()=>inp.focus(),50);
+  }
 }
 
 function deleteRQ(id){
@@ -2629,6 +2643,10 @@ function toggleFAQEdit(id){
     toast('저장되었습니다.','success');
   }else{
     dispQ.style.display='none';dispA.style.display='none';editArea.style.display='block';btn.textContent='저장';
+    setTimeout(()=>{
+      const qInp=document.getElementById('faq-inp-q-'+id);
+      if(qInp){qInp.setAttribute('lang','ko');qInp.setAttribute('inputmode','text');qInp.focus();}
+    },50);
   }
 }
 

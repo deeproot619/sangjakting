@@ -397,10 +397,10 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
     </div>
     <div class="card">
       <div class="card-hd">신청 정보</div>
-      <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="m-name" placeholder="이름을 입력하세요"></div>
+      <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="m-name" placeholder="이름을 입력하세요" lang="ko" inputmode="text"></div>
       <div class="form-group"><label class="form-label">생년월일 (8자리)</label><input class="form-input" id="m-birth" placeholder="예: 19990101" maxlength="8" inputmode="numeric"></div>
       <div class="form-group"><label class="form-label">전화번호</label><input class="form-input" id="m-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric"></div>
-      <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="m-job" placeholder="직업을 입력하세요"></div>
+      <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="m-job" placeholder="직업을 입력하세요" lang="ko" inputmode="text"></div>
       <div class="form-group">
         <label class="form-label">파일 첨부</label>
         <div class="file-area" id="fileArea">
@@ -460,7 +460,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
     </div>
     <div class="card">
       <div class="card-hd">작성자 확인</div>
-      <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="pw-name" placeholder="이름을 입력하세요"></div>
+      <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="pw-name" placeholder="이름을 입력하세요" lang="ko" inputmode="text"></div>
       <div class="form-group"><label class="form-label">생년월일 (8자리)</label><input class="form-input" id="pw-birth" placeholder="예: 19990101" maxlength="8" inputmode="numeric"></div>
       <div style="display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-primary btn-sm" onclick="verifyWriter()">작성 시작 / 저장한 글 불러오기</button>
@@ -525,7 +525,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
     <div id="rw-notice-area"></div>
     <div class="card">
       <div class="card-hd">참석 정보</div>
-      <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="rw-name" placeholder="이름을 입력하세요" oninput="checkRwForm()"></div>
+      <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="rw-name" placeholder="이름을 입력하세요" lang="ko" inputmode="text" oninput="checkRwForm()"></div>
       <div class="form-group"><label class="form-label">생년월일 (8자리)</label><input class="form-input" id="rw-birth" placeholder="예: 19990101" maxlength="8" inputmode="numeric" oninput="checkRwForm()"></div>
       <div class="form-group"><label class="form-label">참여일자 (8자리)</label><input class="form-input" id="rw-partdate" placeholder="예: 20260606" maxlength="8" inputmode="numeric" oninput="checkRwForm()"></div>
       <div class="form-group">
