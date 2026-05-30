@@ -226,6 +226,8 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 @keyframes toast-in{from{transform:translateX(110%);opacity:0;}to{transform:translateX(0);opacity:1;}}
 
 /* ── TOP BTN ── */
+.guide-box{background:var(--bg4);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 16px;margin-bottom:16px;}
+.guide-edit-area textarea{min-height:120px;}
 .top-btn{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--bd2);border-radius:20px;color:var(--txt2);padding:7px 20px;font-size:12px;cursor:pointer;transition:all .2s;z-index:100;display:none;font-family:'Noto Sans KR',sans-serif;}
 .top-btn.visible{display:block;}
 .top-btn:hover{color:var(--gold);border-color:var(--gold);}
@@ -493,6 +495,24 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div class="admin-topnav" id="topnav-12"></div>
       <div class="admin-content">
         <div class="page-title">Preview 관리</div>
+        <!-- 0. 작성방법 안내 관리 -->
+        <div class="card" id="pv-guide-card">
+          <div class="flex-between mb8">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">📋 작성방법 안내 관리</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span style="font-size:12px;color:var(--txt2);">사용자 표시</span>
+              <label class="toggle">
+                <input type="checkbox" id="pv-guide-enabled" onchange="saveGuideEnabled('previewGuide',this.checked)">
+                <div class="toggle-track"></div>
+              </label>
+              <button class="btn btn-secondary btn-sm" id="pv-guide-edit-btn" onclick="toggleGuideEdit('pv')">수정</button>
+            </div>
+          </div>
+          <div id="pv-guide-display" class="res-content" style="font-size:13px;color:var(--txt);white-space:pre-line;min-height:32px;"></div>
+          <div id="pv-guide-edit" style="display:none;margin-top:8px;">
+            <textarea class="form-textarea" id="pv-guide-input" style="min-height:120px;" placeholder="Preview 작성방법 안내 내용을 입력하세요."></textarea>
+          </div>
+        </div>
         <div class="card">
           <div class="card-hd">일정 등록 현황 (Preview 작성 활성화)</div>
           <div class="table-wrap">
@@ -554,6 +574,24 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div class="admin-topnav" id="topnav-13"></div>
       <div class="admin-content">
         <div class="page-title">Review 관리</div>
+        <!-- 0. 작성방법 안내 관리 -->
+        <div class="card" id="rv-guide-card">
+          <div class="flex-between mb8">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">📋 작성방법 안내 관리</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span style="font-size:12px;color:var(--txt2);">사용자 표시</span>
+              <label class="toggle">
+                <input type="checkbox" id="rv-guide-enabled" onchange="saveGuideEnabled('reviewGuide',this.checked)">
+                <div class="toggle-track"></div>
+              </label>
+              <button class="btn btn-secondary btn-sm" id="rv-guide-edit-btn" onclick="toggleGuideEdit('rv')">수정</button>
+            </div>
+          </div>
+          <div id="rv-guide-display" class="res-content" style="font-size:13px;color:var(--txt);white-space:pre-line;min-height:32px;"></div>
+          <div id="rv-guide-edit" style="display:none;margin-top:8px;">
+            <textarea class="form-textarea" id="rv-guide-input" style="min-height:120px;" placeholder="Review 작성방법 안내 내용을 입력하세요."></textarea>
+          </div>
+        </div>
         <!-- 1. 질문 목록 -->
         <div class="card">
           <div class="flex-between mb16">
@@ -756,6 +794,10 @@ const DB={
   saveReviewQs:v=>DB.set('reviewQs',v),
   reviewNotice:()=>DB.get('reviewNotice','리뷰를 작성해주신 분들께 드리는 선물은 인스타 공지를 확인해 주세요'),
   saveReviewNotice:v=>DB.set('reviewNotice',v),
+  previewGuide:()=>DB.get('previewGuide',{enabled:false,content:''}),
+  savePreviewGuide:v=>DB.set('previewGuide',v),
+  reviewGuide:()=>DB.get('reviewGuide',{enabled:false,content:''}),
+  saveReviewGuide:v=>DB.set('reviewGuide',v),
   noticePopup:()=>DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true}),
   saveNoticePopup:v=>DB.set('noticePopup',v),
   faq:()=>DB.get('faq',[
@@ -944,11 +986,18 @@ function go(page,params={},pushState=true){
 // ═══════════════════════════════════════════════════
 // 일정의 질문 목록 가져오기 (스냅샷 우선)
 function getScheduleQuestions(scheduleId){
-  const sched=DB.schedules().find(s=>s.id===scheduleId);
-  if(sched&&sched.previewQuestions&&sched.previewQuestions.length>0){
+  const scheds=DB.schedules();
+  const sched=scheds.find(s=>s.id===scheduleId);
+  if(!sched)return DB.previewQs().sort((a,b)=>a.order-b.order);
+  // 스냅샷 있으면 스냅샷 반환
+  if(sched.previewQuestions&&sched.previewQuestions.length>0){
     return sched.previewQuestions;
   }
-  return DB.previewQs().sort((a,b)=>a.order-b.order);
+  // 스냅샷 없으면 현재 질문으로 자동 생성 후 저장
+  const currentQs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  sched.previewQuestions=currentQs.map(q=>({id:q.id,order:q.order,content:q.content}));
+  DB.saveSchedules(scheds);
+  return sched.previewQuestions;
 }
 
 // 일정 날짜가 지났는지 확인
@@ -2004,6 +2053,7 @@ let apState={scheduleId:null,selected:null};
 function initAdminPreview(){
   setupAdmin('12','admin-preview');
   apState={scheduleId:null,selected:null};
+  initGuideCard('pv','previewGuide');
   renderAPSchedSection();
   renderPQTable();
   const scheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
@@ -2146,6 +2196,7 @@ let arPage=1;
 function initAdminReviews(page){
   setupAdmin('13','admin-reviews');
   arPage=page||1;
+  initGuideCard('rv','reviewGuide');
   renderRQTable();
   initRQNotice();
   renderARList();
@@ -2498,6 +2549,50 @@ function toggleRQNotice(){
     rqNoticeEditing=true;
   }
 }
+
+// ── 작성방법 안내 관리 ──
+function initGuideCard(prefix, key){
+  const g=DB.get(key,{enabled:false,content:''});
+  const enabledEl=document.getElementById(prefix+'-guide-enabled');
+  const displayEl=document.getElementById(prefix+'-guide-display');
+  const inputEl=document.getElementById(prefix+'-guide-input');
+  if(enabledEl)enabledEl.checked=g.enabled||false;
+  if(displayEl)displayEl.textContent=g.content||'(내용 없음)';
+  if(inputEl)inputEl.value=g.content||'';
+}
+
+function saveGuideEnabled(key, val){
+  const g=DB.get(key,{enabled:false,content:''});
+  g.enabled=val;
+  DB.set(key,g);
+  toast(val?'사용자에게 표시됩니다.':'사용자에게 숨겨집니다.','info');
+}
+
+function toggleGuideEdit(prefix){
+  const guideKey=prefix==='pv'?'previewGuide':'reviewGuide';
+  const displayEl=document.getElementById(prefix+'-guide-display');
+  const editEl=document.getElementById(prefix+'-guide-edit');
+  const inputEl=document.getElementById(prefix+'-guide-input');
+  const btn=document.getElementById(prefix+'-guide-edit-btn');
+  if(btn.textContent==='저장'){
+    const val=inputEl.value;
+    const g=DB.get(guideKey,{enabled:false,content:''});
+    g.content=val;
+    DB.set(guideKey,g);
+    displayEl.textContent=val||'(내용 없음)';
+    displayEl.style.display='';
+    editEl.style.display='none';
+    btn.textContent='수정';
+    toast('저장되었습니다.','success');
+  } else {
+    displayEl.style.display='none';
+    editEl.style.display='block';
+    inputEl.setAttribute('lang','ko');
+    btn.textContent='저장';
+    requestAnimationFrame(()=>inputEl.focus());
+  }
+}
+
 
 // ═══════════════════════════════════════════════════
 //  팝업 관리

@@ -226,6 +226,12 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 @keyframes toast-in{from{transform:translateX(110%);opacity:0;}to{transform:translateX(0);opacity:1;}}
 
 /* ── TOP BTN ── */
+.guide-box{background:var(--bg4);border:1px solid var(--gold);border-radius:var(--r2);padding:14px 16px;margin-bottom:16px;position:relative;}
+.guide-box-title{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
+.guide-box-title-txt{font-size:13px;font-weight:600;color:var(--gold);}
+.guide-box-content{font-size:13px;color:var(--txt);line-height:1.75;white-space:pre-line;margin-top:10px;}
+.guide-toggle-btn{background:none;border:1px solid var(--gold);color:var(--gold);border-radius:var(--r3);padding:3px 10px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s;}
+.guide-toggle-btn:hover{background:var(--gold3);}
 .top-btn{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--bd2);border-radius:20px;color:var(--txt2);padding:7px 20px;font-size:12px;cursor:pointer;transition:all .2s;z-index:100;display:none;font-family:'Noto Sans KR',sans-serif;}
 .top-btn.visible{display:block;}
 .top-btn:hover{color:var(--gold);border-color:var(--gold);}
@@ -402,7 +408,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div class="form-group"><label class="form-label">전화번호</label><input class="form-input" id="m-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric"></div>
       <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="m-job" placeholder="직업을 입력하세요" lang="ko" inputmode="text"></div>
       <div class="form-group">
-        <label class="form-label">파일 첨부</label>
+        <label class="form-label">파일 첨부 (사원증 등 직업 증빙 가능한 사진)</label>
         <div class="file-area" id="fileArea">
           <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFile(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
           <div class="file-icon">📎</div>
@@ -448,6 +454,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
   </div>
   <div class="container">
     <div class="page-title">상작팅 Preview 작성</div>
+    <div id="pw-guide-area"></div>
     <div class="card">
       <div class="card-hd">일정 선택</div>
       <div class="dropdown-wrap">
@@ -522,6 +529,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
   </div>
   <div class="container">
     <div class="page-title">상작팅 Review 작성</div>
+    <div id="rw-guide-area"></div>
     <div id="rw-notice-area"></div>
     <div class="card">
       <div class="card-hd">참석 정보</div>
@@ -713,6 +721,10 @@ const DB={
   saveReviewQs:v=>DB.set('reviewQs',v),
   reviewNotice:()=>DB.get('reviewNotice','리뷰를 작성해주신 분들께 드리는 선물은 인스타 공지를 확인해 주세요'),
   saveReviewNotice:v=>DB.set('reviewNotice',v),
+  previewGuide:()=>DB.get('previewGuide',{enabled:false,content:''}),
+  savePreviewGuide:v=>DB.set('previewGuide',v),
+  reviewGuide:()=>DB.get('reviewGuide',{enabled:false,content:''}),
+  saveReviewGuide:v=>DB.set('reviewGuide',v),
   noticePopup:()=>DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true}),
   saveNoticePopup:v=>DB.set('noticePopup',v),
   faq:()=>DB.get('faq',[
@@ -865,11 +877,18 @@ let currentPage='main';
 
 // 일정의 질문 목록 가져오기 (스냅샷 우선)
 function getScheduleQuestions(scheduleId){
-  const sched=DB.schedules().find(s=>s.id===scheduleId);
-  if(sched&&sched.previewQuestions&&sched.previewQuestions.length>0){
+  const scheds=DB.schedules();
+  const sched=scheds.find(s=>s.id===scheduleId);
+  if(!sched)return DB.previewQs().sort((a,b)=>a.order-b.order);
+  // 스냅샷 있으면 스냅샷 반환
+  if(sched.previewQuestions&&sched.previewQuestions.length>0){
     return sched.previewQuestions;
   }
-  return DB.previewQs().sort((a,b)=>a.order-b.order);
+  // 스냅샷 없으면 현재 질문으로 자동 생성 후 저장
+  const currentQs=DB.previewQs().sort((a,b)=>a.order-b.order);
+  sched.previewQuestions=currentQs.map(q=>({id:q.id,order:q.order,content:q.content}));
+  DB.saveSchedules(scheds);
+  return sched.previewQuestions;
 }
 
 // ── 공지 팝업 ──
@@ -919,6 +938,34 @@ function closeNoticePopup(){
     localStorage.setItem('sjt_popupHideDate',dateStr);
   }
   document.getElementById('notice-popup-overlay').style.display='none';
+}
+
+
+// ── 작성방법 안내 ──
+function renderGuide(areaId, guideKey){
+  const area=document.getElementById(areaId);
+  if(!area)return;
+  const g=DB.get(guideKey,{enabled:false,content:''});
+  if(!g.enabled||!g.content){area.innerHTML='';return;}
+  const openKey=guideKey+'_open';
+  const isOpen=sessionStorage.getItem(openKey)!=='false';
+  area.innerHTML=`<div class="guide-box">
+    <div class="guide-box-title" onclick="toggleGuide('${areaId}','${guideKey}')">
+      <span class="guide-box-title-txt">📋 작성방법 안내</span>
+      <button class="guide-toggle-btn" id="${areaId}-btn">${isOpen?'접기':'펼치기'}</button>
+    </div>
+    <div class="guide-box-content" id="${areaId}-content" style="display:${isOpen?'block':'none'};">${g.content}</div>
+  </div>`;
+}
+
+function toggleGuide(areaId, guideKey){
+  const content=document.getElementById(areaId+'-content');
+  const btn=document.getElementById(areaId+'-btn');
+  if(!content||!btn)return;
+  const isOpen=content.style.display!=='none';
+  content.style.display=isOpen?'none':'block';
+  btn.textContent=isOpen?'펼치기':'접기';
+  sessionStorage.setItem(guideKey+'_open', String(!isOpen));
 }
 
 
@@ -1367,6 +1414,7 @@ function initRW(){
   document.getElementById('rw-num-val').textContent='선택해주세요';
   document.getElementById('rw-verify-msg').textContent='';
   document.getElementById('rw-done-msg').style.display='none';
+  renderGuide('rw-guide-area','reviewGuide');
   // Render review questions immediately
   renderRWForm();
 
