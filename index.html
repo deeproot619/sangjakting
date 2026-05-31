@@ -408,7 +408,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div class="form-group"><label class="form-label">전화번호</label><input class="form-input" id="m-phone" placeholder="010-0000-0000" maxlength="13" inputmode="numeric"></div>
       <div class="form-group"><label class="form-label">직업</label><input class="form-input" id="m-job" placeholder="직업을 입력하세요" lang="ko" inputmode="text"></div>
       <div class="form-group">
-        <label class="form-label">파일 첨부 (사원증 등 직업 증빙 가능한 사진)</label>
+        <label class="form-label">파일 첨부 (사원증 / 재직증명서 / 명함 등)</label>
         <div class="file-area" id="fileArea">
           <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFile(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
           <div class="file-icon">📎</div>
@@ -1011,8 +1011,17 @@ function initMain(){
     {id:'rv-write',label:'상작팅 Review 작성',icon:'📝',action:"go('review-write')",bg:''},
     {id:'faq',label:'상호작용 FAQ',icon:'❓',action:"go('faq')",bg:''},
   ];
+  // DB에 저장된 라벨/배경 불러오기 (id 기준으로 매칭)
   const savedDefs=DB.get('mainMenuDefs',null);
-  const menuDefs=savedDefs?defaultDefs.map((d,i)=>({...d,...savedDefs[i]||{},action:d.action})):defaultDefs;
+  let menuDefs;
+  if(savedDefs&&savedDefs.length>0){
+    menuDefs=defaultDefs.map(d=>{
+      const saved=savedDefs.find(s=>s.id===d.id);
+      return saved?{...d,label:saved.label||d.label,bg:saved.bg||'',action:d.action}:d;
+    });
+  } else {
+    menuDefs=defaultDefs;
+  }
   const grid=document.getElementById('mainMenuGrid');
   grid.innerHTML=menuDefs.map(it=>`
     <div class="menu-item" onclick="${it.action}" style="${it.bg?'background:url('+it.bg+') center/cover no-repeat;border:none;':''}">

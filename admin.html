@@ -2793,14 +2793,19 @@ function setupAdmin(pageNum, activePage){
 }
 
 function renderMMGrid(){
-  const menuDefs=DB.get('mainMenuDefs',[
+  const DEFAULT_DEFS=[
     {id:'pv-view',label:'상작팅 Preview',icon:'👀',bg:''},
     {id:'rv-view',label:'상작팅 Review',icon:'💬',bg:''},
     {id:'instagram',label:'상호작용 Instagram',icon:'📸',bg:''},
     {id:'pv-write',label:'상작팅 Preview 작성',icon:'✏️',bg:''},
     {id:'rv-write',label:'상작팅 Review 작성',icon:'📝',bg:''},
     {id:'faq',label:'상호작용 FAQ',icon:'❓',bg:''},
-  ]);
+  ];
+  let menuDefs=DB.get('mainMenuDefs',null);
+  if(!menuDefs||menuDefs.length===0){
+    menuDefs=DEFAULT_DEFS;
+    DB.set('mainMenuDefs',menuDefs);
+  }
   const grid=document.getElementById('mm-menu-grid');
   if(!grid)return;
   let html='';
@@ -2812,7 +2817,10 @@ function renderMMGrid(){
       +'<div id="mm-label-'+m.id+'" style="font-size:13px;color:var(--txt);text-align:center;margin-bottom:8px;">'+m.label+'</div>'
       +'<div style="display:flex;gap:6px;">'
       +'<button class="btn btn-secondary btn-sm" style="flex:1;" id="mm-edit-btn-'+m.id+'" onclick="toggleMMEdit(&quot;'+m.id+'&quot;)">글 수정</button>'
-      +'<button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openMMBgPicker(&quot;'+m.id+'&quot;)">배경사진</button>'
+      +(m.bg
+        ?'<button class="btn btn-danger btn-sm" style="flex:1;" onclick="removeMMBg(&quot;'+m.id+'&quot;)">배경 삭제</button>'
+        :'<button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openMMBgPicker(&quot;'+m.id+'&quot;)">배경사진</button>'
+      )
       +'<input type="file" id="mm-file-'+m.id+'" accept="image/*" style="display:none;" onchange="handleMMBg(&quot;'+m.id+'&quot;,this)">'
       +'</div>'
       +'<div id="mm-edit-area-'+m.id+'" style="display:none;margin-top:8px;">'
@@ -2846,6 +2854,16 @@ function saveMMLabel(id){
 
 function openMMBgPicker(id){
   document.getElementById('mm-file-'+id).click();
+}
+
+function removeMMBg(id){
+  confirm2('배경사진을 삭제하시겠습니까?',function(){
+    const defs=DB.get('mainMenuDefs',[]);
+    const m=defs.find(x=>x.id===id);
+    if(m){m.bg='';DB.set('mainMenuDefs',defs);}
+    renderMMGrid();
+    toast('배경사진이 삭제되었습니다.','success');
+  });
 }
 
 function handleMMBg(id, input){
