@@ -418,6 +418,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
         <button class="gender-btn" id="gender-male" onclick="selectGender('남')">남자</button>
         <button class="gender-btn" id="gender-female" onclick="selectGender('여')">여자</button>
       </div>
+      <div id="gender-sub-text" style="font-size:13px;color:var(--txt2);white-space:pre-line;line-height:1.7;display:none;"></div>
     </div>
     <div class="card">
       <div class="card-hd">참석 번호 선택</div>
@@ -715,6 +716,7 @@ const DB={
   saveReviews:v=>DB.set('reviews',v),
   instagram:()=>DB.get('instagram',''),
   saveInstagram:v=>DB.set('instagram',v),
+  genderSubText:()=>DB.get('genderSubText',''),
   resMethod:()=>DB.get('resMethod',{
     part1:'★ 꼭 확인해주세요★\n인스타그램 계정을 팔로우한 뒤,\n아래 내용을 DM으로 보내주세요.\n보내주지 않을 시 입장이 제한될 수 있습니다.\n입금자명 + 참여 날짜\nEx) 김상작, 6월6일(토) 18:00',
     bankName:'카카오뱅크',accountHolder:'천*찬',accountNumber:'3333370720655',
@@ -1176,6 +1178,11 @@ function initMain(){
   document.getElementById('submitBtn').style.display='';
   document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>';
   updateSubmitBtn();
+
+  // 성별 선택 안내 텍스트
+  const gst=DB.genderSubText();
+  const gstEl=document.getElementById('gender-sub-text');
+  if(gstEl){gstEl.textContent=gst;gstEl.style.display=gst?'block':'none';}
 
   // phone input
   document.getElementById('m-phone').oninput=formatPhone;

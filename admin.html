@@ -415,6 +415,17 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div class="admin-content">
         <div class="page-title">메인 관리</div>
         <div class="card">
+          <div class="flex-between mb8">
+            <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">성별 선택 안내 텍스트</div>
+            <button class="btn btn-secondary btn-sm" id="gender-text-edit-btn" onclick="toggleGenderTextEdit()">수정</button>
+          </div>
+          <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;">메인 페이지 성별 선택 버튼 아래에 표시되는 텍스트입니다.</div>
+          <div id="gender-text-display" style="font-size:13px;color:var(--txt);white-space:pre-line;line-height:1.7;min-height:24px;"></div>
+          <div id="gender-text-edit" style="display:none;margin-top:8px;">
+            <textarea class="form-textarea" id="gender-text-input" style="min-height:100px;" placeholder="성별 선택 버튼 아래에 표시할 텍스트를 입력하세요."></textarea>
+          </div>
+        </div>
+        <div class="card">
           <div class="card-hd">메인 페이지 메뉴 아이콘 관리</div>
           <div style="font-size:12px;color:var(--txt2);margin-bottom:14px;">각 항목의 아이콘 내 글씨와 배경 사진을 수정할 수 있습니다.</div>
           <div id="mm-menu-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
@@ -912,6 +923,8 @@ const DB={
   saveReviews:v=>DB.set('reviews',v),
   instagram:()=>DB.get('instagram',''),
   saveInstagram:v=>DB.set('instagram',v),
+  genderSubText:()=>DB.get('genderSubText',''),
+  saveGenderSubText:v=>DB.set('genderSubText',v),
   resMethod:()=>DB.get('resMethod',{
     part1:'★ 꼭 확인해주세요★\n인스타그램 계정을 팔로우한 뒤,\n아래 내용을 DM으로 보내주세요.\n보내주지 않을 시 입장이 제한될 수 있습니다.\n입금자명 + 참여 날짜\nEx) 김상작, 6월6일(토) 18:00',
     bankName:'카카오뱅크',accountHolder:'천*찬',accountNumber:'3333370720655',
@@ -3629,7 +3642,33 @@ function deleteFAQItem(id){
 // ═══════════════════════════════════════════════════
 function initAdminMainManage(){
   setupAdmin('mm','admin-main-manage');
+  initGenderTextCard();
   renderMMGrid();
+}
+
+function initGenderTextCard(){
+  const text=DB.genderSubText();
+  const display=document.getElementById('gender-text-display');
+  const input=document.getElementById('gender-text-input');
+  if(display)display.textContent=text||'(입력된 텍스트 없음)';
+  if(input)input.value=text;
+}
+
+function toggleGenderTextEdit(){
+  const editArea=document.getElementById('gender-text-edit');
+  const btn=document.getElementById('gender-text-edit-btn');
+  const isEditing=editArea.style.display!=='none';
+  if(isEditing){
+    const text=document.getElementById('gender-text-input').value;
+    DB.saveGenderSubText(text);
+    document.getElementById('gender-text-display').textContent=text||'(입력된 텍스트 없음)';
+    editArea.style.display='none';
+    btn.textContent='수정';
+    toast('저장되었습니다.','success');
+  } else {
+    editArea.style.display='block';
+    btn.textContent='저장';
+  }
 }
 
 function setupAdmin(pageNum, activePage){
