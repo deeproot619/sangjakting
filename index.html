@@ -150,6 +150,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .person-btn:hover{border-color:var(--gold);color:var(--gold);}
 .person-btn.active{border-color:var(--gold);background:var(--gold3);color:var(--gold);font-weight:600;}
 .person-btn.empty{opacity:.3;}
+.person-btn.has-preview{border-color:var(--ok);background:rgba(82,201,138,.12);color:var(--ok);}
 
 /* ── PREVIEW CONTENT ── */
 .preview-content{background:var(--bg4);border-radius:var(--r2);padding:18px;margin-top:14px;}
@@ -389,6 +390,19 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div id="main-event-tabs" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
     </div>
     <div class="card">
+      <div class="card-hd">동의 및 확인</div>
+      <div class="checks-area">
+        <label class="check-row">
+          <input type="checkbox" id="chk-privacy" onchange="updateSubmitBtn()">
+          <span class="check-label">개인정보 수집 및 이용 동의</span>
+        </label>
+        <div class="check-row">
+          <input type="checkbox" id="chk-res" onchange="updateSubmitBtn()" onclick="return false;" style="cursor:not-allowed;width:16px;height:16px;accent-color:var(--gold);flex-shrink:0;">
+          <span class="check-label clickable" onclick="openResModal()">예약 신청 방법 확인</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-hd">일정 선택</div>
       <div class="dropdown-wrap" id="main-schedule-wrap">
         <div class="dropdown-trigger" id="main-schedule-btn" onclick="toggleDrop('main-schedule')">
@@ -403,6 +417,12 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       <div class="gender-group">
         <button class="gender-btn" id="gender-male" onclick="selectGender('남')">남자</button>
         <button class="gender-btn" id="gender-female" onclick="selectGender('여')">여자</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">참석 번호 선택</div>
+      <div id="numSelectArea">
+        <div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>
       </div>
     </div>
     <div class="card">
@@ -421,31 +441,11 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
       </div>
       <div id="m-custom-fields"></div>
     </div>
-    <div class="card">
-      <div class="card-hd">참석 번호 선택</div>
-      <div id="numSelectArea">
-        <div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>
-      </div>
+    <div style="position:relative;margin-bottom:8px;">
+      <button class="btn btn-primary btn-full" id="submitBtn" disabled onclick="submitApplication()">예약 신청하기</button>
+      <div id="submitBtnOverlay" style="position:absolute;inset:0;cursor:not-allowed;" onclick="toast('신청 정보 입력, 체크박스 체크를 확인해 주세요','error')"></div>
     </div>
-    <div class="card">
-      <div class="card-hd">동의 및 확인</div>
-      <div class="checks-area">
-        <label class="check-row">
-          <input type="checkbox" id="chk-privacy" onchange="updateSubmitBtn()">
-          <span class="check-label">개인정보 수집 및 이용 동의</span>
-        </label>
-        <div class="check-row">
-          <input type="checkbox" id="chk-res" onchange="updateSubmitBtn()" onclick="return false;" style="cursor:not-allowed;">
-          <span class="check-label clickable" onclick="openResModal()">예약 신청 방법 확인</span>
-        </div>
-        <label class="check-row">
-          <input type="checkbox" id="chk-pay" onchange="updateSubmitBtn()">
-          <span class="check-label">결제 완료</span>
-        </label>
-      </div>
-    </div>
-    <button class="btn btn-primary btn-full" id="submitBtn" disabled onclick="submitApplication()">예약 신청하기</button>
-    <div id="submitMsg" style="display:none;text-align:center;padding:20px;font-size:15px;color:var(--ok);" class="mt16"></div>
+    <div id="submitMsg" style="display:none;text-align:center;padding:20px;font-size:15px;color:var(--ok);"></div>
   </div>
 </div>
 
@@ -1172,7 +1172,6 @@ function initMain(){
   document.getElementById('fileAreaTxt').textContent='파일을 선택하거나 여기를 클릭하세요';
   document.getElementById('chk-privacy').checked=false;
   document.getElementById('chk-res').checked=false;
-  document.getElementById('chk-pay').checked=false;
   document.getElementById('submitMsg').style.display='none';
   document.getElementById('submitBtn').style.display='';
   document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>';
@@ -1245,6 +1244,7 @@ function handleFile(input){
     mainState.fileName=file.name;
     document.getElementById('fileArea').classList.add('has-file');
     document.getElementById('fileAreaTxt').textContent=`✓ ${file.name}`;
+    updateSubmitBtn();
   };
   reader.readAsDataURL(file);
 }
@@ -1252,8 +1252,12 @@ function handleFile(input){
 function updateSubmitBtn(){
   const p=document.getElementById('chk-privacy').checked;
   const r=document.getElementById('chk-res').checked;
-  const pay=document.getElementById('chk-pay').checked;
-  document.getElementById('submitBtn').disabled=!(p&&r&&pay);
+  const fileField=document.getElementById('m-field-file');
+  const fileOk=!fileField||fileField.style.display==='none'||!!mainState.file;
+  const ok=p&&r&&fileOk;
+  document.getElementById('submitBtn').disabled=!ok;
+  const overlay=document.getElementById('submitBtnOverlay');
+  if(overlay)overlay.style.display=ok?'none':'block';
 }
 
 function openResModal(){
@@ -1300,7 +1304,7 @@ function handlePaymentDone(){
   toast('예약 신청 방법 확인이 완료되었습니다.','success');
 }
 
-function submitApplication(){
+async function submitApplication(){
   const schedId=mainState.scheduleId;
   const gender=mainState.gender;
   const number=mainState.number;
@@ -1345,10 +1349,15 @@ function submitApplication(){
   };
   const apps=DB.applications();
   apps.push(app);
-  DB.saveApplications(apps);
+  try{localStorage.setItem('sjt_applications',JSON.stringify(apps));}catch(e){}
 
-  // Show success
-  document.getElementById('submitBtn').style.display='none';
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;
+  btn.textContent='저장 중...';
+
+  await syncToSB('applications',apps);
+
+  btn.style.display='none';
   const msg=document.getElementById('submitMsg');
   msg.innerHTML='✅ 예약 신청이 완료되었습니다!<br><small style="color:var(--txt2);">확인 후 연락드리겠습니다.</small>';
   msg.style.display='block';
@@ -1566,6 +1575,7 @@ function selectPVSchedule(id,text){
 }
 
 function renderPVGrid(){
+  const previews=DB.previews();
   ['male','female'].forEach(g=>{
     const gender=g==='male'?'남':'여';
     const grid=document.getElementById(`pv-${g}-grid`);
@@ -1573,7 +1583,8 @@ function renderPVGrid(){
     let html='';
     for(let i=1;i<=capacity;i++){
       const isActive=pvState.selected&&pvState.selected.gender===gender&&pvState.selected.number===i;
-      html+=`<button class="person-btn ${isActive?'active':''}" onclick="selectPVPerson('${gender}',${i})">${gender}자 ${i}번</button>`;
+      const hasPreview=previews.some(p=>p.scheduleId===pvState.scheduleId&&p.gender===gender&&p.number===i);
+      html+=`<button class="person-btn ${isActive?'active':''} ${!isActive&&hasPreview?'has-preview':''}" onclick="selectPVPerson('${gender}',${i})">${gender}자 ${i}번</button>`;
     }
     grid.innerHTML=html;
   });
@@ -1930,9 +1941,22 @@ window.addEventListener('popstate',function(e){
   }
 });
 
+// 6월 9일, 17일 잔여 일정 일회성 정리
+function cleanupOldSchedules(){
+  const targets=[[2026,6,9],[2026,6,17]];
+  const allScheds=DB.schedules();
+  const removedIds=allScheds
+    .filter(s=>targets.some(([y,m,d])=>s.year===y&&s.month===m&&s.day===d))
+    .map(s=>s.id);
+  if(removedIds.length===0)return;
+  DB.saveSchedules(allScheds.filter(s=>!removedIds.includes(s.id)));
+  DB.saveApplications(DB.applications().filter(a=>!removedIds.includes(a.scheduleId)));
+}
+
 // ═══════════════════════════════════════════════════
 // Start
 initSB();
+cleanupOldSchedules();
 checkExpiredFiles();
 if(_sb){
   loadFromSB().then(()=>{

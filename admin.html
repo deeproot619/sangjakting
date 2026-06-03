@@ -3879,8 +3879,21 @@ function handleHash(){
 // Expire check on load
 checkExpiredFiles();
 
+// 6월 9일, 17일 잔여 일정 일회성 정리
+function cleanupOldSchedules(){
+  const targets=[[2026,6,9],[2026,6,17]];
+  const allScheds=DB.schedules();
+  const removedIds=allScheds
+    .filter(s=>targets.some(([y,m,d])=>s.year===y&&s.month===m&&s.day===d))
+    .map(s=>s.id);
+  if(removedIds.length===0)return;
+  DB.saveSchedules(allScheds.filter(s=>!removedIds.includes(s.id)));
+  DB.saveApplications(DB.applications().filter(a=>!removedIds.includes(a.scheduleId)));
+}
+
 // Start (admin)
 function startAdmin(){
+  cleanupOldSchedules();
   checkExpiredFiles();
   if(DB.isAdmin()){
     history.replaceState({page:'admin-main',params:{}},'','#admin-main');
