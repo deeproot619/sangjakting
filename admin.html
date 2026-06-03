@@ -3530,6 +3530,11 @@ function handlePopupImg(input){
   reader.readAsDataURL(file);
 }
 
+function resetPopupHide(){
+  localStorage.removeItem('sjt_popupHideDate');
+  toast('숨김이 초기화되었습니다. 일반 사용자 페이지에서 팝업이 다시 표시됩니다.','success');
+}
+
 function removePopupImg(){
   confirm2('사진을 삭제하시겠습니까?',()=>{
     const el=(id)=>document.getElementById(id);
@@ -4043,10 +4048,13 @@ if(_sb){
           </div>
         </div>
 
-        <!-- 미리보기 버튼 -->
+        <!-- 미리보기 / 숨김 초기화 -->
         <div class="card" style="text-align:center;">
-          <button class="btn btn-secondary" onclick="previewPopup()">👁 팝업 미리보기</button>
-          <div style="font-size:12px;color:var(--txt3);margin-top:8px;">저장은 자동으로 됩니다.</div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="previewPopup()">👁 팝업 미리보기</button>
+            <button class="btn btn-secondary" onclick="resetPopupHide()">🔄 숨김 초기화</button>
+          </div>
+          <div style="font-size:12px;color:var(--txt3);margin-top:8px;">저장은 자동으로 됩니다. · 숨김 초기화 시 이 기기에서 '오늘 하루 그만보기'가 해제됩니다.</div>
         </div>
 
       </div>
