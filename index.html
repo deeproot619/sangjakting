@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -633,12 +633,26 @@ async function syncToSB(k,v){
   if(!_sb)return;
   try{
     let syncVal=v;
-    // 파일 데이터 제거 (용량 제한)
     if(k==='applications') syncVal=(v||[]).map(a=>({...a,fileData:''}));
-    // 배경사진 제거 (용량 제한)
     if(k==='mainMenuDefs') syncVal=(v||[]).map(m=>({...m,bg:''}));
     await _sb.from('app_data').upsert({key:k,value:JSON.stringify(syncVal)});
   }catch(e){console.warn('Supabase sync error:',k,e.message);}
+}
+
+// 신청 1건을 개별 row로 저장 (race condition 방지)
+async function syncApplicationToSB(app){
+  if(!_sb)return false;
+  const syncApp={...app,fileData:''};
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      await _sb.from('app_data').upsert({key:'app_'+app.id,value:JSON.stringify(syncApp)});
+      return true;
+    }catch(e){
+      console.warn('Supabase application sync attempt '+(attempt+1)+' failed:',e.message);
+      if(attempt<2)await new Promise(r=>setTimeout(r,2000));
+    }
+  }
+  return false;
 }
 
 async function loadFromSB(){
@@ -651,9 +665,11 @@ async function loadFromSB(){
     const{data,error}=await Promise.race([query,timeout]);
     if(error)throw error;
     if(data){
-      data.forEach(row=>{
+      const appRows=data.filter(row=>row.key.startsWith('app_'));
+      const otherRows=data.filter(row=>!row.key.startsWith('app_'));
+
+      otherRows.forEach(row=>{
         if(row.key==='applications'){
-          // 파일 데이터는 로컬 우선 유지
           const local=DB.applications();
           const remote=JSON.parse(row.value||'[]');
           const merged=remote.map(rApp=>{
@@ -663,15 +679,40 @@ async function loadFromSB(){
           local.forEach(lApp=>{if(!merged.find(m=>m.id===lApp.id))merged.push(lApp);});
           localStorage.setItem('sjt_applications',JSON.stringify(merged));
         } else if(row.key==='mainMenuDefs'){
-          // 배경사진은 로컬 우선 유지
           const local=DB.get('mainMenuDefs',null);
           const remote=JSON.parse(row.value||'[]');
           const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
           localStorage.setItem('sjt_mainMenuDefs',JSON.stringify(merged));
+        } else if(row.key==='noticePopup'){
+          const localRaw=localStorage.getItem('sjt_noticePopup');
+          if(localRaw){
+            try{
+              const local=JSON.parse(localRaw);
+              const remote=JSON.parse(row.value||'{}');
+              if((remote.savedAt||0)>=(local.savedAt||0)){
+                localStorage.setItem('sjt_noticePopup',row.value);
+              }
+            }catch(e){localStorage.setItem('sjt_noticePopup',row.value);}
+          }else{
+            localStorage.setItem('sjt_noticePopup',row.value);
+          }
         } else {
           localStorage.setItem('sjt_'+row.key,row.value);
         }
       });
+
+      // 개별 신청 row(app_*) 병합 — race condition 방지용으로 저장된 항목들
+      if(appRows.length>0){
+        const local=DB.applications();
+        let changed=false;
+        appRows.forEach(row=>{
+          try{
+            const rApp=JSON.parse(row.value);
+            if(!local.find(l=>l.id===rApp.id)){local.push(rApp);changed=true;}
+          }catch(e){}
+        });
+        if(changed)localStorage.setItem('sjt_applications',JSON.stringify(local));
+      }
     }
   }catch(e){
     console.warn('Supabase 로드 실패, localStorage 사용:',e.message);
@@ -1362,13 +1403,27 @@ async function submitApplication(){
   btn.disabled=true;
   btn.textContent='저장 중...';
 
-  await syncToSB('applications',apps);
+  const synced=await syncApplicationToSB(app);
 
   btn.style.display='none';
   const msg=document.getElementById('submitMsg');
-  msg.innerHTML='✅ 예약 신청이 완료되었습니다!<br><small style="color:var(--txt2);">확인 후 연락드리겠습니다.</small>';
+  const sched=DB.schedules().find(s=>s.id===schedId);
+  if(synced){
+    msg.innerHTML='✅ 예약 신청이 완료되었습니다!<br><small style="color:var(--txt2);">확인 후 연락드리겠습니다.</small>';
+    toast('예약 신청이 완료되었습니다.','success');
+  }else{
+    msg.innerHTML='⚠️ 신청이 접수되었으나 서버 저장에 실패했습니다.<br>'
+      +'<small style="color:var(--err);">아래 정보를 캡처하여 관리자에게 문의해 주세요.</small>'
+      +'<div style="margin-top:8px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:10px;font-size:12px;color:var(--txt);line-height:1.8;">'
+      +'이름: '+name+'<br>'
+      +'성별/번호: '+gender+' '+number+'번<br>'
+      +'일정: '+(sched?sched.displayText:'')+'<br>'
+      +'생년월일: '+birth+'<br>'
+      +'전화번호: '+phone
+      +'</div>';
+    toast('서버 저장 실패 — 관리자에게 문의해 주세요.','error');
+  }
   msg.style.display='block';
-  toast('예약 신청이 완료되었습니다.','success');
 }
 
 // ═══════════════════════════════════════════════════
@@ -1445,18 +1500,28 @@ function selectPWSchedule(id,text){
 
 }
 
-function verifyWriter(){
+async function verifyWriter(){
   if(!pwState.scheduleId){toast('일정을 먼저 선택해주세요.','error');return;}
   const name=document.getElementById('pw-name').value.trim();
   const birth=document.getElementById('pw-birth').value.trim();
   if(!name||!birth){toast('이름과 생년월일을 입력해주세요.','error');return;}
-  const app=DB.applications().find(a=>a.scheduleId===pwState.scheduleId&&a.name===name&&a.birthdate===birth);
   const msg=document.getElementById('pw-verify-msg');
+
+  const findApp=()=>DB.applications().find(a=>a.scheduleId===pwState.scheduleId&&a.name===name&&a.birthdate===birth);
+  let app=findApp();
+
+  // 로컬에서 못 찾으면 Supabase에서 최신 데이터를 다시 불러와 재시도
+  if(!app&&_sb){
+    msg.className='text-sm mt8 text-muted';
+    msg.textContent='데이터 확인 중...';
+    await loadFromSB();
+    app=findApp();
+  }
+
   if(!app){
     msg.className='text-sm mt8 text-err';
     msg.textContent='신청자 현황과 일치하지 않습니다.';
     document.getElementById('pw-form-area').style.display='none';
-  
     pwState.verifiedApp=null;
     return;
   }
@@ -1726,23 +1791,33 @@ function checkRwForm(){
   if(ready)verifyRWParticipant();
 }
 
-function verifyRWParticipant(){
+async function verifyRWParticipant(){
   const name=document.getElementById('rw-name').value.trim();
   const birth=document.getElementById('rw-birth').value.trim();
   const pdate=document.getElementById('rw-partdate').value.trim();
   const msg=document.getElementById('rw-verify-msg');
-  // Find matching application: name + birthdate + schedule date matches pdate
-  const scheds=DB.schedules();
-  const apps=DB.applications();
-  // pdate format YYYYMMDD, schedule displayText contains year/month/day
-  const matched=apps.find(a=>{
-    if(a.name!==name||a.birthdate!==birth)return false;
-    const sched=scheds.find(s=>s.id===a.scheduleId);
-    if(!sched)return false;
-    // Build date string from schedule
-    const schedDate=`${sched.year}${String(sched.month).padStart(2,'0')}${String(sched.day).padStart(2,'0')}`;
-    return schedDate===pdate;
-  });
+
+  const findMatch=()=>{
+    const scheds=DB.schedules();
+    return DB.applications().find(a=>{
+      if(a.name!==name||a.birthdate!==birth)return false;
+      const sched=scheds.find(s=>s.id===a.scheduleId);
+      if(!sched)return false;
+      const schedDate=`${sched.year}${String(sched.month).padStart(2,'0')}${String(sched.day).padStart(2,'0')}`;
+      return schedDate===pdate;
+    });
+  };
+
+  let matched=findMatch();
+
+  // 로컬에서 못 찾으면 Supabase에서 최신 데이터를 다시 불러와 재시도
+  if(!matched&&_sb){
+    msg.className='text-sm mt8 text-muted';
+    msg.textContent='데이터 확인 중...';
+    await loadFromSB();
+    matched=findMatch();
+  }
+
   if(!matched){
     msg.className='text-sm mt8 text-err';
     msg.textContent='참석자 현황과 일치하지 않습니다.';
@@ -1758,7 +1833,6 @@ function verifyRWParticipant(){
   msg.textContent='확인되었습니다.';
   renderRWForm();
 }
-
 function renderRWForm(){
   const evtId=rwState.eventId||'evt_default';
   const qs=DB.eventReviewQs(evtId).sort((a,b)=>a.order-b.order);

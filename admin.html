@@ -488,7 +488,10 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
         <div class="card">
           <div class="flex-between mb8">
             <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">이벤트 선택</div>
-            <button class="btn btn-success btn-sm" onclick="downloadApplicantsExcel()">📥 전체 엑셀 다운로드</button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-secondary btn-sm" id="app-refresh-btn" onclick="refreshApplicantsFromSB()">🔄 새로고침</button>
+              <button class="btn btn-success btn-sm" onclick="downloadApplicantsExcel()">📥 전체 엑셀 다운로드</button>
+            </div>
           </div>
           <div id="app-event-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
           <div class="flex-between mt8">
@@ -867,7 +870,11 @@ async function loadFromSB(){
     const{data,error}=await Promise.race([query,timeout]);
     if(error)throw error;
     if(data){
-      data.forEach(row=>{
+      // app_* 개별 신청 row와 나머지를 분리
+      const appRows=data.filter(row=>row.key.startsWith('app_'));
+      const otherRows=data.filter(row=>!row.key.startsWith('app_'));
+
+      otherRows.forEach(row=>{
         if(row.key==='applications'){
           const local=DB.applications();
           const remote=JSON.parse(row.value||'[]');
@@ -886,6 +893,22 @@ async function loadFromSB(){
           localStorage.setItem('sjt_'+row.key,row.value);
         }
       });
+
+      // 개별 신청 row 병합 (누락 방지)
+      if(appRows.length>0){
+        const local=DB.applications();
+        let changed=false;
+        appRows.forEach(row=>{
+          try{
+            const rApp=JSON.parse(row.value);
+            if(!local.find(l=>l.id===rApp.id)){
+              local.push(rApp);
+              changed=true;
+            }
+          }catch(e){}
+        });
+        if(changed)localStorage.setItem('sjt_applications',JSON.stringify(local));
+      }
     }
   }catch(e){
     console.warn('Supabase 로드 실패, localStorage 사용:',e.message);
@@ -3484,6 +3507,7 @@ function savePopupSetting(){if(_isComposing)return;
     textEnabled:el('popup-text-enabled').checked,
     imageEnabled:el('popup-img-enabled').checked,
     text:el('popup-text-input').value,
+    savedAt:Date.now(),
   };
   DB.set('noticePopup',updated);
 }
@@ -3500,7 +3524,7 @@ function handlePopupImg(input){
     el('popup-img-preview-img').style.display='';
     el('popup-img-none-txt').style.display='none';
     const current=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
-    DB.set('noticePopup',{...current,imageData:data});
+    DB.set('noticePopup',{...current,imageData:data,savedAt:Date.now()});
     toast('사진이 등록되었습니다.','success');
   };
   reader.readAsDataURL(file);
@@ -3513,7 +3537,7 @@ function removePopupImg(){
     el('popup-img-preview-img').style.display='none';
     el('popup-img-none-txt').style.display='';
     const current=DB.get('noticePopup',{enabled:false,text:'',textEnabled:true,imageData:'',imageEnabled:true});
-    DB.set('noticePopup',{...current,imageData:''});
+    DB.set('noticePopup',{...current,imageData:'',savedAt:Date.now()});
     toast('사진이 삭제되었습니다.','success');
   });
 }
@@ -3769,6 +3793,17 @@ function handleMMBg(id, input){
 //  ADMIN APPLICANTS (standalone with schedule selector + excel)
 // ═══════════════════════════════════════════════════
 let appFilterEvt='all';
+
+async function refreshApplicantsFromSB(){
+  const btn=document.getElementById('app-refresh-btn');
+  if(btn){btn.disabled=true;btn.textContent='로딩 중...';}
+  await loadFromSB();
+  renderAppEventTabs();
+  buildAppScheduleMenu();
+  if(currentSchedId)renderApplicants();
+  if(btn){btn.disabled=false;btn.textContent='🔄 새로고침';}
+  toast('최신 데이터를 불러왔습니다.','success');
+}
 
 function initAdminApplicants(scheduleId){
   setupAdmin('11','admin-applicants');
