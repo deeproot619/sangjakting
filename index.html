@@ -370,7 +370,10 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
     <button class="modal-close" onclick="closeResModal()">✕</button>
     <div class="modal-title">예약 신청 방법</div>
     <div id="resModalContent"></div>
-    <button class="btn btn-primary btn-full mt16" onclick="handlePaymentDone()">입금 완료</button>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeResModal()">닫기</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="handlePaymentDone()">입금 완료</button>
+    </div>
   </div>
 </div>
 
@@ -639,6 +642,81 @@ async function syncToSB(k,v){
   }catch(e){console.warn('Supabase sync error:',k,e.message);}
 }
 
+// 특정 일정의 신청자 데이터만 Supabase에서 타겟 동기화
+async function syncScheduleApplications(scheduleId){
+  if(!_sb)return;
+  try{
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
+    const{data,error}=await Promise.race([
+      _sb.from('app_data').select('key,value').or('key.eq.applications,key.like.app_%'),
+      timeout
+    ]);
+    if(error)throw error;
+    if(!data)return;
+    const mainRow=data.find(r=>r.key==='applications');
+    const appRows=data.filter(r=>r.key.startsWith('app_'));
+    let local=DB.applications();
+    if(mainRow){
+      const remote=JSON.parse(mainRow.value||'[]');
+      const merged=remote.map(rApp=>{
+        const lApp=local.find(l=>l.id===rApp.id);
+        return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
+      });
+      local.forEach(lApp=>{if(!merged.find(m=>m.id===lApp.id))merged.push(lApp);});
+      local=merged;
+    }
+    appRows.forEach(row=>{
+      try{
+        const rApp=JSON.parse(row.value);
+        if(!local.find(l=>l.id===rApp.id))local.push(rApp);
+      }catch(e){}
+    });
+    localStorage.setItem('sjt_applications',JSON.stringify(local));
+  }catch(e){
+    console.warn('Applications sync failed:',e.message);
+  }
+}
+
+// 설정 데이터만 Supabase에서 조용히 동기화 (로딩 오버레이 없음)
+async function syncSettingsFromSB(){
+  if(!_sb)return;
+  try{
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
+    const{data,error}=await Promise.race([
+      _sb.from('app_data').select('key,value'),
+      timeout
+    ]);
+    if(error)throw error;
+    if(!data)return;
+    // application 관련 행은 건드리지 않음 (syncScheduleApplications 담당)
+    data.filter(r=>!r.key.startsWith('app_')&&r.key!=='applications').forEach(row=>{
+      if(row.key==='mainMenuDefs'){
+        const local=DB.get('mainMenuDefs',null);
+        const remote=JSON.parse(row.value||'[]');
+        const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
+        localStorage.setItem('sjt_mainMenuDefs',JSON.stringify(merged));
+      }else if(row.key==='noticePopup'){
+        const localRaw=localStorage.getItem('sjt_noticePopup');
+        if(localRaw){
+          try{
+            const local=JSON.parse(localRaw);
+            const remote=JSON.parse(row.value||'{}');
+            if((remote.savedAt||0)>=(local.savedAt||0)){
+              localStorage.setItem('sjt_noticePopup',row.value);
+            }
+          }catch(e){localStorage.setItem('sjt_noticePopup',row.value);}
+        }else{
+          localStorage.setItem('sjt_noticePopup',row.value);
+        }
+      }else{
+        localStorage.setItem('sjt_'+row.key,row.value);
+      }
+    });
+  }catch(e){
+    console.warn('Settings sync failed:',e.message);
+  }
+}
+
 // 신청 1건을 개별 row로 저장 (race condition 방지)
 async function syncApplicationToSB(app){
   if(!_sb)return false;
@@ -792,7 +870,7 @@ const DB={
   saveFaq:v=>DB.set('faq',v),
   isAdmin:()=>DB.get('auth',false),
   setAdmin:v=>DB.set('auth',v),
-  events:()=>DB.get('events',[{id:'evt_default',name:'상작팅',isActive:true,previewEnabled:true,reviewEnabled:true,maleCapacity:12,femaleCapacity:12}]),
+  events:()=>DB.get('events',[{id:'evt_default',name:'상작팅',isActive:true,previewEnabled:true,reviewEnabled:true,maleCapacity:12,femaleCapacity:12,fileRequired:true}]),
   saveEvents:v=>DB.set('events',v),
   eventPreviewQs:evtId=>evtId==='evt_default'||!evtId?DB.previewQs():DB.get('previewQs_'+evtId,[]),
   eventReviewQs:evtId=>evtId==='evt_default'||!evtId?DB.reviewQs():DB.get('reviewQs_'+evtId,[]),
@@ -815,6 +893,12 @@ const DB={
     const sched=DB.schedules().filter(s=>s.eventId===evtId&&s.isVisible)[0];
     if(sched)return gender==='남'?(sched.maleCapacity||12):(sched.femaleCapacity||12);
     return 12;
+  },
+  getEventFileRequired:evtId=>{
+    if(!evtId)return true;
+    const evt=DB.events().find(e=>e.id===evtId);
+    if(evt&&evt.fileRequired!==undefined)return evt.fileRequired;
+    return true;
   },
 };
 
@@ -1090,9 +1174,9 @@ function getMenuLabel(menuId,fallback){
     if(saved&&saved.label)return saved.label;
   }
   const defaultLabels={
-    'pv-view':'상작팅 Preview','rv-view':'상작팅 Review',
-    'pv-write':'상작팅 Preview 작성','rv-write':'상작팅 Review 작성',
-    'faq':'상호작용 FAQ'
+    'pv-view':'참석자 자기소개서 모음','rv-view':'상작팅 후기모음',
+    'pv-write':'자기소개서 작성','rv-write':'상작팅 리뷰후기 작성',
+    'faq':'상호작용 Q&A'
   };
   return defaultLabels[menuId]||fallback;
 }
@@ -1165,7 +1249,8 @@ function buildMainScheduleMenu(){
   }
 }
 
-function initMain(){
+async function initMain(){
+  await syncSettingsFromSB();
   // 이벤트 탭 렌더링
   const activeEvents=DB.events().filter(e=>e.isActive);
   if(!mainEvtFilter&&activeEvents.length>0)mainEvtFilter=activeEvents[0].id;
@@ -1177,12 +1262,12 @@ function initMain(){
   const ig=DB.instagram();
   const menuActions=["go('preview-view')",`openExtLink('${ig}')`,`openExtLink('${ig}')`,  "go('preview-view')", "go('preview-write')", "go('review-write')", "go('faq')"];
   const defaultDefs=[
-    {id:'pv-view',label:'상작팅 Preview',icon:'👀',action:"go('preview-view')",bg:''},
-    {id:'rv-view',label:'상작팅 Review',icon:'💬',action:"go('review-view')",bg:''},
-    {id:'instagram',label:'상호작용 Instagram',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
-    {id:'pv-write',label:'상작팅 Preview 작성',icon:'✏️',action:"go('preview-write')",bg:''},
-    {id:'rv-write',label:'상작팅 Review 작성',icon:'📝',action:"go('review-write')",bg:''},
-    {id:'faq',label:'상호작용 FAQ',icon:'❓',action:"go('faq')",bg:''},
+    {id:'pv-view',label:'참석자 자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
+    {id:'rv-view',label:'상작팅 후기모음',icon:'💬',action:"go('review-view')",bg:''},
+    {id:'instagram',label:'상작팅 실시간 현장',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
+    {id:'pv-write',label:'자기소개서 작성',icon:'✏️',action:"go('preview-write')",bg:''},
+    {id:'rv-write',label:'상작팅 리뷰후기 작성',icon:'📝',action:"go('review-write')",bg:''},
+    {id:'faq',label:'상호작용 Q&A',icon:'❓',action:"go('faq')",bg:''},
   ];
   // DB에 저장된 라벨/배경 불러오기 (id 기준으로 매칭)
   const savedDefs=DB.get('mainMenuDefs',null);
@@ -1231,12 +1316,14 @@ function initMain(){
   showNoticePopup();
 }
 
-function selectMainSchedule(id,text){
+async function selectMainSchedule(id,text){
   mainState.scheduleId=id;
   mainState.number=null;
   document.getElementById('main-schedule-val').textContent=text;
   document.getElementById('main-schedule-btn').classList.remove('open');
   document.getElementById('main-schedule-menu').classList.remove('open');
+  document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">신청 현황 조회 중...</div>';
+  await syncScheduleApplications(id);
   renderNumberGrid();
   updateSubmitBtn();
 }
@@ -1301,7 +1388,11 @@ function updateSubmitBtn(){
   const p=document.getElementById('chk-privacy').checked;
   const r=document.getElementById('chk-res').checked;
   const fileField=document.getElementById('m-field-file');
-  const fileOk=!fileField||fileField.style.display==='none'||!!mainState.file;
+  let fileOk=true;
+  if(fileField&&fileField.style.display!=='none'){
+    const fileRequired=mainEvtFilter?DB.getEventFileRequired(mainEvtFilter):true;
+    if(fileRequired)fileOk=!!mainState.file;
+  }
   const ok=p&&r&&fileOk;
   document.getElementById('submitBtn').disabled=!ok;
   const overlay=document.getElementById('submitBtnOverlay');
@@ -1353,6 +1444,9 @@ function handlePaymentDone(){
 }
 
 async function submitApplication(){
+  const btn=document.getElementById('submitBtn');
+  if(btn.disabled)return;
+
   const schedId=mainState.scheduleId;
   const gender=mainState.gender;
   const number=mainState.number;
@@ -1372,6 +1466,31 @@ async function submitApplication(){
   if(fieldEnabled('occupation')&&!job){toast('직업을 입력해주세요.','error');return;}
   if(!number){toast('참석 번호를 선택해주세요.','error');return;}
 
+  // 파일 첨부 필수 여부 확인
+  const fileField=document.getElementById('m-field-file');
+  if(fieldEnabled('file')&&fileField&&fileField.style.display!=='none'){
+    if(mainEvtFilter&&DB.getEventFileRequired(mainEvtFilter)&&!mainState.file){
+      toast('파일을 첨부해주세요.','error');return;
+    }
+  }
+
+  // 중복 클릭 방지 및 처리 중 표시
+  btn.disabled=true;
+  btn.textContent='확인 중...';
+
+  // Supabase 최신 신청자 데이터 동기화 후 중복 체크
+  await syncScheduleApplications(schedId);
+  const taken=getTakenNumbers(schedId,gender);
+  if(taken.includes(number)){
+    toast('선택한 번호가 이미 신청되었습니다. 다른 번호를 선택해주세요.','error');
+    renderNumberGrid();
+    btn.disabled=false;
+    btn.textContent='예약 신청하기';
+    return;
+  }
+
+  btn.textContent='저장 중...';
+
   // 커스텀 필드 수집
   const customData={};
   if(appFields){
@@ -1380,10 +1499,6 @@ async function submitApplication(){
       if(el)customData[f.key]=el.value.trim();
     });
   }
-
-  // Check if number is still available
-  const taken=getTakenNumbers(schedId,gender);
-  if(taken.includes(number)){toast('선택한 번호가 이미 신청되었습니다. 다른 번호를 선택해주세요.','error');renderNumberGrid();return;}
 
   const now=Date.now();
   const app={
@@ -1399,16 +1514,14 @@ async function submitApplication(){
   apps.push(app);
   try{localStorage.setItem('sjt_applications',JSON.stringify(apps));}catch(e){}
 
-  const btn=document.getElementById('submitBtn');
-  btn.disabled=true;
-  btn.textContent='저장 중...';
-
   const synced=await syncApplicationToSB(app);
 
   btn.style.display='none';
   const msg=document.getElementById('submitMsg');
   const sched=DB.schedules().find(s=>s.id===schedId);
   if(synced){
+    // 신청 완료 즉시 번호 그리드 갱신하여 해당 번호 비활성화
+    renderNumberGrid();
     msg.innerHTML='✅ 예약 신청이 완료되었습니다!<br><small style="color:var(--txt2);">확인 후 연락드리겠습니다.</small>';
     toast('예약 신청이 완료되었습니다.','success');
   }else{
@@ -1438,7 +1551,8 @@ let pwState={scheduleId:null,verifiedApp:null};
 
 let pwEvtFilter=null;
 
-function initPW(){
+async function initPW(){
+  await syncSettingsFromSB();
   setPageTitle('pw-page-title','pv-write','Preview 작성');
   pwState={scheduleId:null,verifiedApp:null};
   const previewEvents=DB.events().filter(e=>e.isActive&&e.previewEnabled);
@@ -1510,11 +1624,11 @@ async function verifyWriter(){
   const findApp=()=>DB.applications().find(a=>a.scheduleId===pwState.scheduleId&&a.name===name&&a.birthdate===birth);
   let app=findApp();
 
-  // 로컬에서 못 찾으면 Supabase에서 최신 데이터를 다시 불러와 재시도
+  // 로컬에서 못 찾으면 Supabase에서 신청자 데이터만 타겟 동기화 후 재시도
   if(!app&&_sb){
     msg.className='text-sm mt8 text-muted';
     msg.textContent='데이터 확인 중...';
-    await loadFromSB();
+    await syncScheduleApplications(pwState.scheduleId);
     app=findApp();
   }
 
@@ -1564,6 +1678,18 @@ function loadPrevPreview(){
 
 function savePreview(){
   if(!pwState.verifiedApp){toast('작성자 확인이 필요합니다.','error');return;}
+  const{scheduleId,gender,number,name,birthdate}=pwState.verifiedApp;
+  // 신청 정보 재검증: 저장 시점에도 동일 scheduleId+gender+number+name+birthdate 일치 확인
+  const stillValid=DB.applications().some(a=>
+    a.scheduleId===scheduleId&&a.gender===gender&&a.number===number&&
+    a.name===name&&a.birthdate===birthdate
+  );
+  if(!stillValid){
+    toast('신청 정보를 확인할 수 없습니다. 다시 인증해주세요.','error');
+    document.getElementById('pw-form-area').style.display='none';
+    pwState.verifiedApp=null;
+    return;
+  }
   const qs=getScheduleQuestions(pwState.scheduleId);
   const answers={};
   let hasAll=true;
@@ -1574,7 +1700,6 @@ function savePreview(){
     answers[q.id]=val;
   });
   if(!hasAll){toast('모든 질문에 답변해주세요.','error');return;}
-  const {scheduleId,gender,number}=pwState.verifiedApp;
   const prevs=DB.previews();
   const idx=prevs.findIndex(p=>p.scheduleId===scheduleId&&p.gender===gender&&p.number===number);
   const entry={scheduleId,gender,number,answers,updatedAt:Date.now()};
@@ -1590,7 +1715,8 @@ let pvState={scheduleId:null,selected:null};
 
 let pvEvtFilter=null;
 
-function initPV(){
+async function initPV(){
+  await syncSettingsFromSB();
   setPageTitle('pv-page-title','pv-view','Preview');
   pvState={scheduleId:null,selected:null};
   const events=DB.events().filter(e=>e.isActive&&e.previewEnabled);
@@ -1734,7 +1860,8 @@ function applyRWReviewFields(){
   });
 }
 
-function initRW(){
+async function initRW(){
+  await syncSettingsFromSB();
   setPageTitle('rw-page-title','rv-write','Review 작성');
   rwState={gender:null,number:null,verified:false,eventId:null};
   // 이벤트 선택기 렌더링
@@ -1810,11 +1937,11 @@ async function verifyRWParticipant(){
 
   let matched=findMatch();
 
-  // 로컬에서 못 찾으면 Supabase에서 최신 데이터를 다시 불러와 재시도
+  // 로컬에서 못 찾으면 Supabase에서 신청자 데이터만 타겟 동기화 후 재시도
   if(!matched&&_sb){
     msg.className='text-sm mt8 text-muted';
     msg.textContent='데이터 확인 중...';
-    await loadFromSB();
+    await syncScheduleApplications(null);
     matched=findMatch();
   }
 
@@ -1899,7 +2026,8 @@ const RV_PER_PAGE=3;
 
 let rvEvtFilter=null;
 
-function initRV(page){
+async function initRV(page){
+  await syncSettingsFromSB();
   setPageTitle('rv-page-title','rv-view','Review');
   rvPage=page||1;
   // 이벤트 탭 렌더링
@@ -1951,13 +2079,16 @@ function renderRV(){
       ${qas}
     </div>`;
   }).join('');
-  renderPagination('rv-pagination',rvPage,reviews.length,RV_PER_PAGE,'initRV');
+  renderPagination('rv-pagination',rvPage,reviews.length,RV_PER_PAGE,'rvPageChange');
 }
+
+function rvPageChange(p){rvPage=p;renderRV();}
 
 // ═══════════════════════════════════════════════════
 //  PAGE 7: FAQ
 // ═══════════════════════════════════════════════════
-function initFAQ(){
+async function initFAQ(){
+  await syncSettingsFromSB();
   setPageTitle('faq-page-title','faq','상호작용 FAQ');
   const faqs=DB.faq().sort((a,b)=>a.order-b.order);
   const list=document.getElementById('faq-list');
@@ -2022,22 +2153,9 @@ window.addEventListener('popstate',function(e){
   }
 });
 
-// 6월 9일, 17일 잔여 일정 일회성 정리
-function cleanupOldSchedules(){
-  const targets=[[2026,6,9],[2026,6,17]];
-  const allScheds=DB.schedules();
-  const removedIds=allScheds
-    .filter(s=>targets.some(([y,m,d])=>s.year===y&&s.month===m&&s.day===d))
-    .map(s=>s.id);
-  if(removedIds.length===0)return;
-  DB.saveSchedules(allScheds.filter(s=>!removedIds.includes(s.id)));
-  DB.saveApplications(DB.applications().filter(a=>!removedIds.includes(a.scheduleId)));
-}
-
 // ═══════════════════════════════════════════════════
 // Start
 initSB();
-cleanupOldSchedules();
 checkExpiredFiles();
 if(_sb){
   loadFromSB().then(()=>{

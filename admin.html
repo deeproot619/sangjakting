@@ -149,6 +149,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .person-btn{padding:9px 4px;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r2);cursor:pointer;font-size:11px;color:var(--txt2);transition:all .18s;text-align:center;font-family:'Noto Sans KR',sans-serif;}
 .person-btn:hover{border-color:var(--gold);color:var(--gold);}
 .person-btn.active{border-color:var(--gold);background:var(--gold3);color:var(--gold);font-weight:600;}
+.person-btn.has-preview{border-color:var(--ok);background:rgba(82,201,138,.12);color:var(--ok);}
 .person-btn.empty{opacity:.3;}
 
 /* ── PREVIEW CONTENT ── */
@@ -917,6 +918,41 @@ async function loadFromSB(){
   }
 }
 
+// 신청자 데이터만 Supabase에서 타겟 동기화
+async function syncScheduleApplications(scheduleId){
+  if(!_sb)return;
+  try{
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
+    const{data,error}=await Promise.race([
+      _sb.from('app_data').select('key,value').or('key.eq.applications,key.like.app_%'),
+      timeout
+    ]);
+    if(error)throw error;
+    if(!data)return;
+    const mainRow=data.find(r=>r.key==='applications');
+    const appRows=data.filter(r=>r.key.startsWith('app_'));
+    let local=DB.applications();
+    if(mainRow){
+      const remote=JSON.parse(mainRow.value||'[]');
+      const merged=remote.map(rApp=>{
+        const lApp=local.find(l=>l.id===rApp.id);
+        return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
+      });
+      local.forEach(lApp=>{if(!merged.find(m=>m.id===lApp.id))merged.push(lApp);});
+      local=merged;
+    }
+    appRows.forEach(row=>{
+      try{
+        const rApp=JSON.parse(row.value);
+        if(!local.find(l=>l.id===rApp.id))local.push(rApp);
+      }catch(e){}
+    });
+    localStorage.setItem('sjt_applications',JSON.stringify(local));
+  }catch(e){
+    console.warn('Applications sync failed:',e.message);
+  }
+}
+
 function showSBLoading(show){
   let el=document.getElementById('sb-loading');
   if(!el){
@@ -986,7 +1022,7 @@ const DB={
   saveFaq:v=>DB.set('faq',v),
   isAdmin:()=>DB.get('auth',false),
   setAdmin:v=>DB.set('auth',v),
-  events:()=>DB.get('events',[{id:'evt_default',name:'상작팅',isActive:true,previewEnabled:true,reviewEnabled:true,maleCapacity:12,femaleCapacity:12}]),
+  events:()=>DB.get('events',[{id:'evt_default',name:'상작팅',isActive:true,previewEnabled:true,reviewEnabled:true,maleCapacity:12,femaleCapacity:12,fileRequired:true}]),
   saveEvents:v=>DB.set('events',v),
   eventPreviewQs:evtId=>evtId==='evt_default'||!evtId?DB.previewQs():DB.get('previewQs_'+evtId,[]),
   saveEventPreviewQs:(evtId,v)=>evtId==='evt_default'||!evtId?DB.savePreviewQs(v):DB.set('previewQs_'+evtId,v),
@@ -1008,6 +1044,12 @@ const DB={
     const sched=DB.schedules().filter(s=>s.eventId===evtId&&s.isVisible)[0];
     if(sched)return gender==='남'?(sched.maleCapacity||12):(sched.femaleCapacity||12);
     return 12;
+  },
+  getEventFileRequired:evtId=>{
+    if(!evtId)return true;
+    const evt=DB.events().find(e=>e.id===evtId);
+    if(evt&&evt.fileRequired!==undefined)return evt.fileRequired;
+    return true;
   },
 };
 
@@ -2138,14 +2180,23 @@ function renderEvtManageList(){
   if(!el)return;
   if(events.length===0){el.innerHTML='<div class="empty-state" style="padding:12px;">등록된 이벤트가 없습니다.</div>';return;}
   el.innerHTML=events.map(e=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);">
-      <span id="evtm-name-${e.id}" style="font-size:14px;font-weight:500;color:var(--txt);flex:1;">${e.name}</span>
-      <input class="form-input" id="evtm-inp-${e.id}" value="${e.name}" style="display:none;flex:1;padding:5px 8px;">
-      <label class="toggle" title="사용자 탭 표시">
-        <input type="checkbox" ${e.isActive?'checked':''} onchange="toggleEvtActive('${e.id}',this.checked)">
-        <div class="toggle-track"></div>
-      </label>
-      <span style="font-size:11px;color:var(--txt3);margin-right:4px;">탭 노출</span>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap;">
+      <span id="evtm-name-${e.id}" style="font-size:14px;font-weight:500;color:var(--txt);flex:1;min-width:80px;">${e.name}</span>
+      <input class="form-input" id="evtm-inp-${e.id}" value="${e.name}" style="display:none;flex:1;min-width:80px;padding:5px 8px;">
+      <div style="display:flex;align-items:center;gap:4px;">
+        <label class="toggle" title="사용자 탭 표시">
+          <input type="checkbox" ${e.isActive?'checked':''} onchange="toggleEvtActive('${e.id}',this.checked)">
+          <div class="toggle-track"></div>
+        </label>
+        <span style="font-size:11px;color:var(--txt3);">탭 노출</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <label class="toggle" title="파일 첨부 필수 여부">
+          <input type="checkbox" ${e.fileRequired!==false?'checked':''} onchange="toggleEvtFileRequired('${e.id}',this.checked)">
+          <div class="toggle-track"></div>
+        </label>
+        <span style="font-size:11px;color:var(--txt3);">파일 필수</span>
+      </div>
       <button class="btn btn-secondary btn-sm" id="evtm-edit-${e.id}" onclick="startEvtNameEdit('${e.id}')">수정</button>
       <button class="btn btn-primary btn-sm" id="evtm-save-${e.id}" style="display:none;" onclick="saveEvtName('${e.id}')">저장</button>
       <button class="btn btn-danger btn-sm" ${e.id==='evt_default'?'disabled':''} onclick="deleteEvtById('${e.id}')">삭제</button>
@@ -2156,6 +2207,12 @@ function toggleEvtActive(evtId,val){
   const events=DB.events();
   const e=events.find(x=>x.id===evtId);
   if(e){e.isActive=val;DB.saveEvents(events);toast('저장되었습니다.','success');}
+}
+
+function toggleEvtFileRequired(evtId,val){
+  const events=DB.events();
+  const e=events.find(x=>x.id===evtId);
+  if(e){e.fileRequired=val;DB.saveEvents(events);toast(val?'파일 첨부가 필수로 설정되었습니다.':'파일 첨부가 선택으로 변경되었습니다.','success');}
 }
 
 function startEvtNameEdit(evtId){
@@ -2333,7 +2390,7 @@ function renderEvtSchedTable(){renderEvtSchedList();}
 function openEvtDetail(evtId){selectAdminEvent(evtId);}
 function openAppFieldsConfig(evtId){selectAdminEvent(evtId);}
 function closeEvtDetail(){evtDetailId=null;document.getElementById('evt-detail-area').style.display='none';renderAdminEventTabs();}
-function toggleEventProp(evtId,prop,val){const events=DB.events();const e=events.find(x=>x.id===evtId);if(e){e[prop]=val;DB.saveEvents(events);}}
+function toggleEventProp(evtId,prop,val){const events=DB.events();const e=events.find(x=>x.id===evtId);if(e){e[prop]=val;DB.saveEvents(events);toast('저장되었습니다.','success');}}
 function deleteCurrentEvent(){deleteEvtById(evtDetailId);}
 function startEvtSettingsEdit(){}
 function saveEvtSettings(){}
@@ -2404,7 +2461,7 @@ function addEvent(){
   const events=DB.events();
   if(events.find(e=>e.name===name)){toast('동일한 이름의 이벤트가 이미 있습니다.','error');return;}
   const newId='evt_'+uid();
-  events.push({id:newId,name,isActive:true,previewEnabled:false,reviewEnabled:false});
+  events.push({id:newId,name,isActive:true,previewEnabled:false,reviewEnabled:false,fileRequired:true});
   DB.saveEvents(events);
   nameEl.value='';
   document.getElementById('add-event-form').style.display='none';
@@ -2414,12 +2471,6 @@ function addEvent(){
   renderEvtManageList();
   renderAdminEventTabs();
   renderEvtDetailContent();
-}
-
-function toggleEventProp(evtId,prop,val){
-  const events=DB.events();
-  const evt=events.find(e=>e.id===evtId);
-  if(evt){evt[prop]=val;DB.saveEvents(events);toast('저장되었습니다.','success');}
 }
 
 function startEditEvent(evtId){
@@ -2444,34 +2495,11 @@ function saveEventName(evtId){
   renderEventsTable();
 }
 
-function deleteEvent(evtId){deleteCurrentEvent();}
-function startEditEvent(evtId){if(evtId===evtDetailId)startEvtSettingsEdit();}
-function saveEventName(evtId){if(evtId===evtDetailId)saveEvtSettings();}
-
 let appFieldsEvtId=null;
 let evtDetailId=null;
 let evtSchedPage=1;
 const EVT_SCHED_PER_PAGE=8;
 let evtSchedShowExpired=false;
-
-function openEvtDetail(evtId){
-  evtDetailId=evtId;
-  appFieldsEvtId=evtId;
-  const evt=DB.events().find(e=>e.id===evtId);
-  document.getElementById('evt-detail-area').style.display='';
-  document.getElementById('evt-detail-name').textContent=evt?evt.name:'';
-  evtSchedPage=1;
-  renderEvtSchedTable();
-  renderAppFieldsList();
-  document.getElementById('evt-sched-input').value='';
-  window._pendingEvtSched=null;
-  document.getElementById('evt-detail-area').scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function closeEvtDetail(){
-  evtDetailId=null;
-  document.getElementById('evt-detail-area').style.display='none';
-}
 
 function openEvtDatePick(){openDatePick();}
 
@@ -2498,41 +2526,6 @@ function addEvtSchedule(){
   toast('일정이 등록되었습니다.','success');
   evtSchedPage=1;
   renderEvtSchedList();
-}
-
-function renderEvtSchedTable(){
-  if(!evtDetailId)return;
-  const allScheds=DB.schedules().sort((a,b)=>b.createdAt-a.createdAt);
-  allScheds.forEach((s,i)=>s.order=allScheds.length-i);
-  const scheds=allScheds.filter(s=>s.eventId===evtDetailId);
-  const tbody=document.getElementById('evt-sched-tbody');
-  const empty=document.getElementById('evt-sched-empty');
-  if(!tbody)return;
-  if(scheds.length===0){tbody.innerHTML='';if(empty)empty.style.display='block';document.getElementById('evt-sched-pagination').innerHTML='';return;}
-  if(empty)empty.style.display='none';
-  const start=(evtSchedPage-1)*EVT_SCHED_PER_PAGE;
-  const slice=scheds.slice(start,start+EVT_SCHED_PER_PAGE);
-  tbody.innerHTML=slice.map(s=>`
-    <tr>
-      <td>${s.order}</td>
-      <td>${s.displayText}</td>
-      <td>
-        <label class="toggle" title="${isScheduleExpired(s)?'지난 일정':''}">
-          <input type="checkbox" ${s.isVisible?'checked':''} ${isScheduleExpired(s)?'disabled':''} onchange="toggleEvtSchedProp('${s.id}','isVisible',this.checked)">
-          <div class="toggle-track"></div>
-        </label>
-        ${isScheduleExpired(s)?'<span style="font-size:10px;color:var(--txt3);display:block;">종료됨</span>':''}
-      </td>
-      <td>
-        <label class="toggle" title="${isScheduleExpired(s)?'지난 일정':''}">
-          <input type="checkbox" ${s.isPreviewActive?'checked':''} ${isScheduleExpired(s)?'disabled':''} onchange="toggleEvtSchedProp('${s.id}','isPreviewActive',this.checked)">
-          <div class="toggle-track"></div>
-        </label>
-      </td>
-      <td><button class="btn btn-secondary btn-sm" onclick="goApplicants('${s.id}')">보기</button></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteEvtSchedule('${s.id}')">삭제</button></td>
-    </tr>`).join('');
-  renderPagination('evt-sched-pagination',evtSchedPage,scheds.length,EVT_SCHED_PER_PAGE,'evtSchedPageChange');
 }
 
 function evtSchedPageChange(p){evtSchedPage=p;renderEvtSchedList();}
@@ -2891,6 +2884,7 @@ function selectAPSchedule(id,text){
 }
 
 function renderAPGrid(){
+  const previews=DB.previews();
   ['male','female'].forEach(g=>{
     const gender=g==='male'?'남':'여';
     const grid=document.getElementById(`ap-${g}-grid`);
@@ -2898,7 +2892,10 @@ function renderAPGrid(){
     let html='';
     for(let i=1;i<=capacity;i++){
       const isActive=apState.selected&&apState.selected.gender===gender&&apState.selected.number===i;
-      html+=`<button class="person-btn ${isActive?'active':''}" onclick="selectAPPerson('${gender}',${i})">${gender}자 ${i}번</button>`;
+      const prev=previews.find(p=>p.scheduleId===apState.scheduleId&&p.gender===gender&&p.number===i);
+      const hasPreview=!isActive&&prev&&prev.answers&&Object.values(prev.answers).some(v=>v&&v.trim());
+      const cls='person-btn'+(isActive?' active':hasPreview?' has-preview':'');
+      html+=`<button class="${cls}" onclick="selectAPPerson('${gender}',${i})">${gender}자 ${i}번</button>`;
     }
     grid.innerHTML=html;
   });
@@ -2957,6 +2954,7 @@ function toggleAPEdit(){
     DB.savePreviews(prevs);
     qs.forEach(q=>{const el=document.getElementById('ap-ans-'+q.id);if(el)el.disabled=true;});
     btn.textContent='수정';
+    renderAPGrid();
     toast('저장되었습니다.','success');
   }else{
     qs.forEach(q=>{const el=document.getElementById('ap-ans-'+q.id);if(el)el.disabled=false;});
@@ -2969,6 +2967,7 @@ function resetAPPreview(){
     const{scheduleId}=apState;
     const{gender,number}=apState.selected;
     DB.savePreviews(DB.previews().filter(p=>!(p.scheduleId===scheduleId&&p.gender===gender&&p.number===number)));
+    renderAPGrid();
     renderAPContent();
     toast('초기화되었습니다.','success');
   });
@@ -3700,19 +3699,14 @@ function toggleGenderTextEdit(){
   }
 }
 
-function setupAdmin(pageNum, activePage){
-  buildSidebar(pageNum, activePage);
-  buildTopNav(pageNum);
-}
-
 function renderMMGrid(){
   const DEFAULT_DEFS=[
-    {id:'pv-view',label:'상작팅 Preview',icon:'👀',bg:''},
-    {id:'rv-view',label:'상작팅 Review',icon:'💬',bg:''},
-    {id:'instagram',label:'상호작용 Instagram',icon:'📸',bg:''},
-    {id:'pv-write',label:'상작팅 Preview 작성',icon:'✏️',bg:''},
-    {id:'rv-write',label:'상작팅 Review 작성',icon:'📝',bg:''},
-    {id:'faq',label:'상호작용 FAQ',icon:'❓',bg:''},
+    {id:'pv-view',label:'참석자 자기소개서 모음',icon:'👀',bg:''},
+    {id:'rv-view',label:'상작팅 후기모음',icon:'💬',bg:''},
+    {id:'instagram',label:'상작팅 실시간 현장',icon:'📸',bg:''},
+    {id:'pv-write',label:'자기소개서 작성',icon:'✏️',bg:''},
+    {id:'rv-write',label:'상작팅 리뷰후기 작성',icon:'📝',bg:''},
+    {id:'faq',label:'상호작용 Q&A',icon:'❓',bg:''},
   ];
   let menuDefs=DB.get('mainMenuDefs',null);
   if(!menuDefs||menuDefs.length===0){
@@ -3955,24 +3949,8 @@ function handleHash(){
   go(page);
 }
 
-// Expire check on load
-checkExpiredFiles();
-
-// 6월 9일, 17일 잔여 일정 일회성 정리
-function cleanupOldSchedules(){
-  const targets=[[2026,6,9],[2026,6,17]];
-  const allScheds=DB.schedules();
-  const removedIds=allScheds
-    .filter(s=>targets.some(([y,m,d])=>s.year===y&&s.month===m&&s.day===d))
-    .map(s=>s.id);
-  if(removedIds.length===0)return;
-  DB.saveSchedules(allScheds.filter(s=>!removedIds.includes(s.id)));
-  DB.saveApplications(DB.applications().filter(a=>!removedIds.includes(a.scheduleId)));
-}
-
 // Start (admin)
 function startAdmin(){
-  cleanupOldSchedules();
   checkExpiredFiles();
   if(DB.isAdmin()){
     history.replaceState({page:'admin-main',params:{}},'','#admin-main');
