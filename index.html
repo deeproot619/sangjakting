@@ -688,8 +688,8 @@ async function syncSettingsFromSB(){
     ]);
     if(error)throw error;
     if(!data)return;
-    // application 관련 행은 건드리지 않음 (syncScheduleApplications 담당)
-    data.filter(r=>!r.key.startsWith('app_')&&r.key!=='applications').forEach(row=>{
+    // application/previews/reviews는 사용자 작성 데이터 → 덮어쓰면 안 됨
+    data.filter(r=>!r.key.startsWith('app_')&&r.key!=='applications'&&r.key!=='previews'&&r.key!=='reviews').forEach(row=>{
       if(row.key==='mainMenuDefs'){
         const local=DB.get('mainMenuDefs',null);
         const remote=JSON.parse(row.value||'[]');

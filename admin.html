@@ -918,6 +918,14 @@ async function loadFromSB(){
   }
 }
 
+// Supabase에서 app_{id} 개별 row 삭제
+async function deleteApplicationFromSB(appId){
+  if(!_sb)return;
+  try{
+    await _sb.from('app_data').delete().eq('key','app_'+appId);
+  }catch(e){console.warn('Failed to delete app row:',e.message);}
+}
+
 // 신청자 데이터만 Supabase에서 타겟 동기화
 async function syncScheduleApplications(scheduleId){
   if(!_sb)return;
@@ -2149,9 +2157,10 @@ function deleteSchedule(id){
   confirm2('정말 삭제하시겠습니까?',()=>{
     const scheds=DB.schedules().filter(s=>s.id!==id);
     DB.saveSchedules(scheds);
-    // Also remove related data
+    const removedApps=DB.applications().filter(a=>a.scheduleId===id);
     DB.saveApplications(DB.applications().filter(a=>a.scheduleId!==id));
     DB.savePreviews(DB.previews().filter(p=>p.scheduleId!==id));
+    removedApps.forEach(a=>deleteApplicationFromSB(a.id));
     toast('일정이 삭제되었습니다.','success');
     initAdminSchedules(1);
   });
@@ -2542,8 +2551,10 @@ function toggleEvtSchedProp(id,prop,val){
 function deleteEvtSchedule(id){
   confirm2('정말 삭제하시겠습니까?',()=>{
     DB.saveSchedules(DB.schedules().filter(s=>s.id!==id));
+    const removedApps=DB.applications().filter(a=>a.scheduleId===id);
     DB.saveApplications(DB.applications().filter(a=>a.scheduleId!==id));
     DB.savePreviews(DB.previews().filter(p=>p.scheduleId!==id));
+    removedApps.forEach(a=>deleteApplicationFromSB(a.id));
     toast('일정이 삭제되었습니다.','success');
     renderEvtSchedTable();
   });
@@ -2757,9 +2768,9 @@ function downloadFile(appId){
 function deleteApplicant(appId,gender,number){
   confirm2('정말 삭제하시겠습니까?\n(해당 번호가 다시 활성화됩니다.)',()=>{
     DB.saveApplications(DB.applications().filter(a=>a.id!==appId));
-    // Remove preview for this person
     const sched=currentSchedId;
     DB.savePreviews(DB.previews().filter(p=>!(p.scheduleId===sched&&p.gender===gender&&p.number===number)));
+    deleteApplicationFromSB(appId);
     toast('신청자 정보가 삭제되었습니다.','success');
     document.getElementById('applicants-content').innerHTML='';
     renderApplicants();
