@@ -662,7 +662,6 @@ async function syncScheduleApplications(scheduleId){
         const lApp=local.find(l=>l.id===rApp.id);
         return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
       });
-      local.forEach(lApp=>{if(!merged.find(m=>m.id===lApp.id))merged.push(lApp);});
       local=merged;
     }
     appRows.forEach(row=>{
@@ -754,7 +753,6 @@ async function loadFromSB(){
             const lApp=local.find(l=>l.id===rApp.id);
             return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
           });
-          local.forEach(lApp=>{if(!merged.find(m=>m.id===lApp.id))merged.push(lApp);});
           localStorage.setItem('sjt_applications',JSON.stringify(merged));
         } else if(row.key==='mainMenuDefs'){
           const local=DB.get('mainMenuDefs',null);
