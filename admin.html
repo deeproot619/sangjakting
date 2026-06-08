@@ -4000,9 +4000,22 @@ function handleHash(){
   go(page);
 }
 
+function autoDeactivateExpiredSchedules(){
+  const scheds=DB.schedules();
+  let changed=false;
+  scheds.forEach(s=>{
+    if(isScheduleExpired(s)){
+      if(s.isVisible){s.isVisible=false;changed=true;}
+      if(s.isPreviewActive){s.isPreviewActive=false;changed=true;}
+    }
+  });
+  if(changed)DB.saveSchedules(scheds);
+}
+
 // Start (admin)
 function startAdmin(){
   checkExpiredFiles();
+  autoDeactivateExpiredSchedules();
   if(DB.isAdmin()){
     history.replaceState({page:'admin-main',params:{}},'','#admin-main');
     go('admin-main',{},false);

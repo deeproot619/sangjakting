@@ -1234,7 +1234,7 @@ function applyMainAppFields(evtId){
 }
 
 function buildMainScheduleMenu(){
-  let scheds=DB.schedules().filter(s=>s.isVisible).sort((a,b)=>b.createdAt-a.createdAt);
+  let scheds=DB.schedules().filter(s=>s.isVisible&&!isScheduleExpired(s)).sort((a,b)=>b.createdAt-a.createdAt);
   if(mainEvtFilter)scheds=scheds.filter(s=>s.eventId===mainEvtFilter);
   const menu=document.getElementById('main-schedule-menu');
   if(!menu)return;
@@ -1588,7 +1588,7 @@ function selectPWEvt(evtId){
 
 function buildPWScheduleMenu(){
   const scheds=DB.schedules()
-    .filter(s=>s.isPreviewActive&&(!pwEvtFilter||s.eventId===pwEvtFilter))
+    .filter(s=>s.isPreviewActive&&!isScheduleExpired(s)&&(!pwEvtFilter||s.eventId===pwEvtFilter))
     .sort((a,b)=>b.createdAt-a.createdAt);
   const menu=document.getElementById('pw-schedule-menu');
   if(!menu)return;
@@ -2114,6 +2114,11 @@ function toggleFaq(i){
   q.classList.toggle('open',!isOpen);
 }
 
+
+function isScheduleExpired(s){
+  const today=new Date();today.setHours(0,0,0,0);
+  return new Date(s.year,s.month-1,s.day)<today;
+}
 
 // 만료된 파일 정리
 function checkExpiredFiles(){
