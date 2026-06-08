@@ -719,7 +719,7 @@ async function syncSettingsFromSB(){
 // 신청 1건을 개별 row로 저장 (race condition 방지)
 async function syncApplicationToSB(app){
   if(!_sb)return false;
-  const syncApp={...app,fileData:''};
+  const syncApp={...app};
   for(let attempt=0;attempt<3;attempt++){
     try{
       await _sb.from('app_data').upsert({key:'app_'+app.id,value:JSON.stringify(syncApp)});
