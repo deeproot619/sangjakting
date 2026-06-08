@@ -1552,5 +1552,3 @@ if(_sb){
   history.replaceState({page:'main',params:{}},'','#main');
   go('main',{},false);
 }
-
-</script>

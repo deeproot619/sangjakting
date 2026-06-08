@@ -3189,5 +3189,3 @@ if(_sb){
 } else {
   startAdmin();
 }
-
-</script>
