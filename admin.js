@@ -2955,6 +2955,7 @@ function toggleMMEdit(id){
   const btn=document.getElementById('mm-edit-btn-'+id);
   const isOpen=area.style.display!=='none';
   if(isOpen){
+    area.innerHTML='';
     area.style.display='none';
     btn.textContent='글 수정';
     return;
@@ -2962,23 +2963,29 @@ function toggleMMEdit(id){
   const defs=DB.get('mainMenuDefs',[]);
   const m=defs.find(x=>x.id===id);
   const currentLabel=m?m.label:'';
-  area.innerHTML='';
-  const inp=document.createElement('input');
-  inp.className='form-input';
-  inp.id='mm-inp-'+id;
-  inp.lang='ko';
-  inp.setAttribute('inputmode','text');
-  inp.value=currentLabel;
-  inp.style.marginBottom='6px';
-  const saveBtn=document.createElement('button');
-  saveBtn.className='btn btn-primary btn-sm btn-full';
-  saveBtn.textContent='저장';
-  saveBtn.onclick=function(){saveMMLabel(id);};
-  area.appendChild(inp);
-  area.appendChild(saveBtn);
+  // 1. 영역 먼저 노출 (컨테이너가 visible 상태여야 모바일 IME 정상 작동)
   area.style.display='block';
   btn.textContent='닫기';
-  requestAnimationFrame(()=>inp.focus());
+  // 2. 다음 프레임에서 input 생성 및 포커스 (영역 렌더링 완료 후)
+  requestAnimationFrame(()=>{
+    area.innerHTML='';
+    const inp=document.createElement('input');
+    inp.type='text';
+    inp.className='form-input';
+    inp.id='mm-inp-'+id;
+    inp.lang='ko';
+    inp.setAttribute('inputmode','text');
+    inp.setAttribute('autocomplete','off');
+    inp.value=currentLabel;
+    inp.style.marginBottom='6px';
+    const saveBtn=document.createElement('button');
+    saveBtn.className='btn btn-primary btn-sm btn-full';
+    saveBtn.textContent='저장';
+    saveBtn.onclick=function(){saveMMLabel(id);};
+    area.appendChild(inp);
+    area.appendChild(saveBtn);
+    inp.focus();
+  });
 }
 
 function saveMMLabel(id){
