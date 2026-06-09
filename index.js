@@ -400,10 +400,9 @@ function renderPagination(containerId,current,total,perPage,onPageChange){
 // ═══════════════════════════════════════════════════
 const PAGES={
   'main':'page-main',
-  'preview-write':'page-preview-write',
+  'application':'page-application',
   'preview-view':'page-preview-view',
-  'review-write':'page-review-write',
-  'review-view':'page-review-view',
+  'review':'page-review',
   'faq':'page-faq',
   'admin-login':'page-admin-login',
   'admin-main':'page-admin-main',
@@ -536,10 +535,9 @@ function go(page,params={},pushState=true){
   }
   // init page
   if(page==='main')initMain();
-  else if(page==='preview-write')initPW();
+  else if(page==='application')initApplication();
   else if(page==='preview-view')initPV();
-  else if(page==='review-write')initRW();
-  else if(page==='review-view')initRV(1);
+  else if(page==='review')initReview();
   else if(page==='faq')initFAQ();
 }
 
@@ -632,23 +630,15 @@ function buildMainScheduleMenu(){
 
 async function initMain(){
   await syncSettingsFromSB();
-  // 이벤트 탭 렌더링
-  const activeEvents=DB.events().filter(e=>e.isActive);
-  if(!mainEvtFilter&&activeEvents.length>0)mainEvtFilter=activeEvents[0].id;
-  renderMainEventTabs();
-  buildMainScheduleMenu();
-  if(mainEvtFilter)applyMainAppFields(mainEvtFilter);
-
   // Menu grid
   const ig=DB.instagram();
-  const menuActions=["go('preview-view')",`openExtLink('${ig}')`,`openExtLink('${ig}')`,  "go('preview-view')", "go('preview-write')", "go('review-write')", "go('faq')"];
   const defaultDefs=[
-    {id:'pv-view',label:'참석자 자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
-    {id:'rv-view',label:'상작팅 후기모음',icon:'💬',action:"go('review-view')",bg:''},
-    {id:'instagram',label:'상작팅 실시간 현장',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
-    {id:'pv-write',label:'자기소개서 작성',icon:'✏️',action:"go('preview-write')",bg:''},
-    {id:'rv-write',label:'상작팅 리뷰후기 작성',icon:'📝',action:"go('review-write')",bg:''},
-    {id:'faq',label:'상호작용 Q&A',icon:'❓',action:"go('faq')",bg:''},
+    {id:'apply',label:'신청하기',icon:'📋',action:"go('application')",bg:''},
+    {id:'matching',label:'매칭 링크',icon:'💑',action:"openExtLink('https://script.google.com/macros/s/AKfycbxSB1QsTuKsYITuNu5swx1Rzo2rZzApimyFVBWEofF4ZgtJuQ002TAK2mPONC-3xhyhmw/exec')",bg:''},
+    {id:'instagram',label:'인스타그램',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
+    {id:'pv-view',label:'자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
+    {id:'rv-view',label:'상작팅 후기',icon:'💬',action:"go('review')",bg:''},
+    {id:'faq',label:'Q&A',icon:'❓',action:"go('faq')",bg:''},
   ];
   // DB에 저장된 라벨/배경 불러오기 (id 기준으로 매칭)
   const savedDefs=DB.get('mainMenuDefs',null);
@@ -667,29 +657,7 @@ async function initMain(){
       ${it.bg?'':'<div class="menu-icon">'+it.icon+'</div>'}
       <div style="${it.bg?'background:rgba(0,0,0,.45);padding:6px 10px;border-radius:6px;width:100%;text-align:center;':''}">${it.label}</div>
     </div>`).join('');
-
-  // Reset state
-  mainState={scheduleId:null,gender:null,number:null,file:null,fileName:null};
-  document.getElementById('main-schedule-val').textContent='일정을 선택하여 예약해주세요.';
-  document.getElementById('gender-male').classList.remove('selected');
-  document.getElementById('gender-female').classList.remove('selected');
-  document.getElementById('m-name').value='';
-  document.getElementById('m-birth').value='';
-  document.getElementById('m-phone').value='';
-  document.getElementById('m-job').value='';
-  document.getElementById('fileArea').classList.remove('has-file');
-  document.getElementById('fileAreaTxt').textContent='파일을 선택하거나 여기를 클릭하세요';
-  document.getElementById('chk-privacy').checked=false;
-  document.getElementById('chk-res').checked=false;
-  document.getElementById('submitMsg').style.display='none';
-  document.getElementById('submitBtn').style.display='';
-  document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>';
-  updateSubmitBtn();
-
-  // 성별 선택 안내 텍스트
-  const gst=DB.genderSubText();
-  const gstEl=document.getElementById('gender-sub-text');
-  if(gstEl){gstEl.textContent=gst;gstEl.style.display=gst?'block':'none';}
+  showNoticePopup();
 
   // phone input
   document.getElementById('m-phone').oninput=formatPhone;
@@ -928,154 +896,148 @@ async function submitApplication(){
 // ═══════════════════════════════════════════════════
 //  PAGE 3: PREVIEW WRITE
 // ═══════════════════════════════════════════════════
-let pwState={scheduleId:null,verifiedApp:null};
+const pwStates={p19:{scheduleId:null,verifiedApp:null},p4:{scheduleId:null,verifiedApp:null}};
+const pwEvtFilters={p19:null,p4:null};
 
-let pwEvtFilter=null;
-
-async function initPW(){
-  await syncSettingsFromSB();
-  setPageTitle('pw-page-title','pv-write','Preview 작성');
-  pwState={scheduleId:null,verifiedApp:null};
+function initPW(ctx){
+  pwStates[ctx]={scheduleId:null,verifiedApp:null};
   const previewEvents=DB.events().filter(e=>e.isActive&&e.previewEnabled);
-  if(!pwEvtFilter&&previewEvents.length>0)pwEvtFilter=previewEvents[0].id;
-  renderPWEventTabs();
-  buildPWScheduleMenu();
-  document.getElementById('pw-schedule-val').textContent='일정을 선택해주세요.';
-  document.getElementById('pw-name').value='';
-  document.getElementById('pw-birth').value='';
-  document.getElementById('pw-verify-msg').textContent='';
-  document.getElementById('pw-form-area').style.display='none';
-  renderGuide('pw-guide-area','previewGuide');
+  if(!pwEvtFilters[ctx]&&previewEvents.length>0)pwEvtFilters[ctx]=previewEvents[0].id;
+  renderPWEventTabs(ctx);
+  buildPWScheduleMenu(ctx);
+  document.getElementById(ctx+'-pw-schedule-val').textContent='일정을 선택해주세요.';
+  document.getElementById(ctx+'-pw-name').value='';
+  document.getElementById(ctx+'-pw-birth').value='';
+  document.getElementById(ctx+'-pw-verify-msg').textContent='';
+  document.getElementById(ctx+'-pw-form-area').style.display='none';
+  renderGuide(ctx+'-pw-guide-area','previewGuide');
 }
 
-function renderPWEventTabs(){
+function renderPWEventTabs(ctx){
   const events=DB.events().filter(e=>e.isActive&&e.previewEnabled);
-  const el=document.getElementById('pw-event-tabs');
+  const el=document.getElementById(ctx+'-pw-event-tabs');
   if(!el)return;
   if(events.length<=1){el.style.display='none';return;}
   el.style.display='flex';
   el.innerHTML=events.map(e=>`
-    <button style="padding:8px 16px;border-radius:var(--r2);font-size:13px;cursor:pointer;border:2px solid ${pwEvtFilter===e.id?'var(--gold)':'var(--bd)'};background:${pwEvtFilter===e.id?'var(--gold3)':'var(--bg4)'};color:${pwEvtFilter===e.id?'var(--gold)':'var(--txt2)'};transition:all .2s;font-family:'Noto Sans KR',sans-serif;"
-    onclick="selectPWEvt('${e.id}')">${e.name}</button>`).join('');
+    <button style="padding:8px 16px;border-radius:var(--r2);font-size:13px;cursor:pointer;border:2px solid ${pwEvtFilters[ctx]===e.id?'var(--gold)':'var(--bd)'};background:${pwEvtFilters[ctx]===e.id?'var(--gold3)':'var(--bg4)'};color:${pwEvtFilters[ctx]===e.id?'var(--gold)':'var(--txt2)'};transition:all .2s;font-family:'Noto Sans KR',sans-serif;"
+    onclick="selectPWEvt('${ctx}','${e.id}')">${e.name}</button>`).join('');
 }
 
-function selectPWEvt(evtId){
-  pwEvtFilter=evtId;
-  pwState={scheduleId:null,verifiedApp:null};
-  renderPWEventTabs();
-  buildPWScheduleMenu();
-  document.getElementById('pw-schedule-val').textContent='일정을 선택해주세요.';
-  document.getElementById('pw-verify-msg').textContent='';
-  document.getElementById('pw-form-area').style.display='none';
+function selectPWEvt(ctx,evtId){
+  pwEvtFilters[ctx]=evtId;
+  pwStates[ctx]={scheduleId:null,verifiedApp:null};
+  renderPWEventTabs(ctx);
+  buildPWScheduleMenu(ctx);
+  document.getElementById(ctx+'-pw-schedule-val').textContent='일정을 선택해주세요.';
+  document.getElementById(ctx+'-pw-verify-msg').textContent='';
+  document.getElementById(ctx+'-pw-form-area').style.display='none';
 }
 
-function buildPWScheduleMenu(){
+function buildPWScheduleMenu(ctx){
   const scheds=DB.schedules()
-    .filter(s=>s.isPreviewActive&&!isScheduleExpired(s)&&(!pwEvtFilter||s.eventId===pwEvtFilter))
+    .filter(s=>s.isPreviewActive&&!isScheduleExpired(s)&&(!pwEvtFilters[ctx]||s.eventId===pwEvtFilters[ctx]))
     .sort((a,b)=>b.createdAt-a.createdAt);
-  const menu=document.getElementById('pw-schedule-menu');
+  const menu=document.getElementById(ctx+'-pw-schedule-menu');
   if(!menu)return;
   if(scheds.length===0){
     menu.innerHTML='<div class="dropdown-empty">활성화된 일정이 없습니다.</div>';
   }else{
     menu.innerHTML=scheds.map(s=>`
-      <div class="dropdown-item" onclick="selectPWSchedule('${s.id}','${s.displayText}')">${s.displayText}</div>
+      <div class="dropdown-item" onclick="selectPWSchedule('${ctx}','${s.id}','${s.displayText}')">${s.displayText}</div>
     `).join('');
   }
 }
 
-function selectPWSchedule(id,text){
-  pwState.scheduleId=id;
-  pwState.verifiedApp=null;
-  document.getElementById('pw-schedule-val').textContent=text;
-  document.getElementById('pw-schedule-btn').classList.remove('open');
-  document.getElementById('pw-schedule-menu').classList.remove('open');
-  document.getElementById('pw-form-area').style.display='none';
-  document.getElementById('pw-verify-msg').textContent='';
-
+function selectPWSchedule(ctx,id,text){
+  pwStates[ctx].scheduleId=id;
+  pwStates[ctx].verifiedApp=null;
+  document.getElementById(ctx+'-pw-schedule-val').textContent=text;
+  document.getElementById(ctx+'-pw-schedule-btn').classList.remove('open');
+  document.getElementById(ctx+'-pw-schedule-menu').classList.remove('open');
+  document.getElementById(ctx+'-pw-form-area').style.display='none';
+  document.getElementById(ctx+'-pw-verify-msg').textContent='';
 }
 
-async function verifyWriter(){
-  if(!pwState.scheduleId){toast('일정을 먼저 선택해주세요.','error');return;}
-  const name=document.getElementById('pw-name').value.trim();
-  const birth=document.getElementById('pw-birth').value.trim();
+async function verifyWriter(ctx){
+  const state=pwStates[ctx];
+  if(!state.scheduleId){toast('일정을 먼저 선택해주세요.','error');return;}
+  const name=document.getElementById(ctx+'-pw-name').value.trim();
+  const birth=document.getElementById(ctx+'-pw-birth').value.trim();
   if(!name||!birth){toast('이름과 생년월일을 입력해주세요.','error');return;}
-  const msg=document.getElementById('pw-verify-msg');
-
-  const findApp=()=>DB.applications().find(a=>a.scheduleId===pwState.scheduleId&&a.name===name&&a.birthdate===birth);
+  const msg=document.getElementById(ctx+'-pw-verify-msg');
+  const findApp=()=>DB.applications().find(a=>a.scheduleId===state.scheduleId&&a.name===name&&a.birthdate===birth);
   let app=findApp();
-
-  // 로컬에서 못 찾으면 Supabase에서 신청자 데이터만 타겟 동기화 후 재시도
   if(!app&&_sb){
     msg.className='text-sm mt8 text-muted';
     msg.textContent='데이터 확인 중...';
-    await syncScheduleApplications(pwState.scheduleId);
+    await syncScheduleApplications(state.scheduleId);
     app=findApp();
   }
-
   if(!app){
     msg.className='text-sm mt8 text-err';
     msg.textContent='신청자 현황과 일치하지 않습니다.';
-    document.getElementById('pw-form-area').style.display='none';
-    pwState.verifiedApp=null;
+    document.getElementById(ctx+'-pw-form-area').style.display='none';
+    state.verifiedApp=null;
     return;
   }
-  pwState.verifiedApp=app;
+  state.verifiedApp=app;
   msg.className='text-sm mt8 text-ok';
   msg.textContent=`확인되었습니다. (${app.gender}자 ${app.number}번)`;
-
-  renderPWForm();
-  loadPrevPreview();
+  renderPWForm(ctx);
+  loadPrevPreview(ctx);
 }
 
-function renderPWForm(){
-  const qs=getScheduleQuestions(pwState.scheduleId);
-  const area=document.getElementById('pw-form-area');
+function renderPWForm(ctx){
+  const state=pwStates[ctx];
+  const qs=getScheduleQuestions(state.scheduleId);
+  const area=document.getElementById(ctx+'-pw-form-area');
   if(qs.length===0){area.innerHTML='<div class="empty-state">등록된 질문이 없습니다.</div>';area.style.display='block';return;}
-  let html='<div class="card-hd">Preview 작성</div>';
+  let html='<div class="card-hd">자기소개서 작성</div>';
   qs.forEach(q=>{
     html+=`<div class="form-group">
       <label class="form-label" style="font-size:15px;color:var(--gold);font-weight:600;">Q${q.order}. ${q.content}</label>
-      <textarea class="form-textarea" id="pw-ans-${q.id}" placeholder="내용을 입력하세요"></textarea>
+      <textarea class="form-textarea" id="${ctx}-pw-ans-${q.id}" placeholder="내용을 입력하세요"></textarea>
     </div>`;
   });
-  html+=`<button class="btn btn-primary btn-full mt16" onclick="savePreview()">작성(수정) 완료</button>`;
+  html+=`<button class="btn btn-primary btn-full mt16" onclick="savePreview('${ctx}')">작성(수정) 완료</button>`;
   area.innerHTML=html;
   area.style.display='block';
 }
 
-function loadPrevPreview(){
-  if(!pwState.verifiedApp)return;
-  const {scheduleId,gender,number}=pwState.verifiedApp;
+function loadPrevPreview(ctx){
+  const state=pwStates[ctx];
+  if(!state.verifiedApp)return;
+  const{scheduleId,gender,number}=state.verifiedApp;
   const prev=DB.previews().find(p=>p.scheduleId===scheduleId&&p.gender===gender&&p.number===number);
   if(!prev)return;
-  const qs=DB.previewQs();
+  const qs=getScheduleQuestions(scheduleId);
   qs.forEach(q=>{
-    const el=document.getElementById('pw-ans-'+q.id);
+    const el=document.getElementById(ctx+'-pw-ans-'+q.id);
     if(el&&prev.answers[q.id])el.value=prev.answers[q.id];
   });
   toast('이전 작성 내용을 불러왔습니다.','info');
 }
 
-function savePreview(){
-  if(!pwState.verifiedApp){toast('작성자 확인이 필요합니다.','error');return;}
-  const{scheduleId,gender,number,name,birthdate}=pwState.verifiedApp;
-  // 신청 정보 재검증: 저장 시점에도 동일 scheduleId+gender+number+name+birthdate 일치 확인
+function savePreview(ctx){
+  const state=pwStates[ctx];
+  if(!state.verifiedApp){toast('작성자 확인이 필요합니다.','error');return;}
+  const{scheduleId,gender,number,name,birthdate}=state.verifiedApp;
   const stillValid=DB.applications().some(a=>
     a.scheduleId===scheduleId&&a.gender===gender&&a.number===number&&
     a.name===name&&a.birthdate===birthdate
   );
   if(!stillValid){
     toast('신청 정보를 확인할 수 없습니다. 다시 인증해주세요.','error');
-    document.getElementById('pw-form-area').style.display='none';
-    pwState.verifiedApp=null;
+    document.getElementById(ctx+'-pw-form-area').style.display='none';
+    state.verifiedApp=null;
     return;
   }
-  const qs=getScheduleQuestions(pwState.scheduleId);
+  const qs=getScheduleQuestions(scheduleId);
   const answers={};
   let hasAll=true;
   qs.forEach(q=>{
-    const el=document.getElementById('pw-ans-'+q.id);
+    const el=document.getElementById(ctx+'-pw-ans-'+q.id);
     const val=el?el.value.trim():'';
     if(!val)hasAll=false;
     answers[q.id]=val;
@@ -1086,7 +1048,57 @@ function savePreview(){
   const entry={scheduleId,gender,number,answers,updatedAt:Date.now()};
   if(idx>=0)prevs[idx]=entry;else prevs.push(entry);
   DB.savePreviews(prevs);
-  toast('Preview가 저장되었습니다.','success');
+  toast('자기소개서가 저장되었습니다.','success');
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGE 19: APPLICATION (신청하기)
+// ═══════════════════════════════════════════════════
+async function initApplication(){
+  await syncSettingsFromSB();
+  const activeEvents=DB.events().filter(e=>e.isActive);
+  if(!mainEvtFilter&&activeEvents.length>0)mainEvtFilter=activeEvents[0].id;
+  renderMainEventTabs();
+  buildMainScheduleMenu();
+  if(mainEvtFilter)applyMainAppFields(mainEvtFilter);
+  mainState={scheduleId:null,gender:null,number:null,file:null,fileName:null};
+  document.getElementById('main-schedule-val').textContent='일정을 선택하여 예약해주세요.';
+  document.getElementById('gender-male').classList.remove('selected');
+  document.getElementById('gender-female').classList.remove('selected');
+  document.getElementById('m-name').value='';
+  document.getElementById('m-birth').value='';
+  document.getElementById('m-phone').value='';
+  document.getElementById('m-job').value='';
+  document.getElementById('fileArea').classList.remove('has-file');
+  document.getElementById('fileAreaTxt').textContent='파일을 선택하거나 여기를 클릭하세요';
+  document.getElementById('chk-privacy').checked=false;
+  document.getElementById('chk-res').checked=false;
+  document.getElementById('submitMsg').style.display='none';
+  document.getElementById('submitBtn').style.display='';
+  document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>';
+  updateSubmitBtn();
+  const gst=DB.genderSubText();
+  const gstEl=document.getElementById('gender-sub-text');
+  if(gstEl){gstEl.textContent=gst;gstEl.style.display=gst?'block':'none';}
+  switchAppTab('form');
+}
+
+function switchAppTab(tab){
+  const fc=document.getElementById('app-tab-form-content');
+  const pc=document.getElementById('app-tab-pv-content');
+  const bf=document.getElementById('app-tab-btn-form');
+  const bp=document.getElementById('app-tab-btn-pv');
+  const gold='2px solid var(--gold)',none='2px solid transparent';
+  if(tab==='form'){
+    fc.style.display='';pc.style.display='none';
+    bf.style.borderBottom=gold;bf.style.color='var(--gold)';
+    bp.style.borderBottom=none;bp.style.color='var(--txt2)';
+  }else{
+    fc.style.display='none';pc.style.display='';
+    bf.style.borderBottom=none;bf.style.color='var(--txt2)';
+    bp.style.borderBottom=gold;bp.style.color='var(--gold)';
+    initPW('p19');
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -1107,6 +1119,25 @@ async function initPV(){
   document.getElementById('pv-schedule-val').textContent='일정을 선택해주세요.';
   document.getElementById('pv-people-area').style.display='none';
   setupTopBtn('pv-top-btn');
+  switchPVTab('view');
+}
+
+function switchPVTab(tab){
+  const vc=document.getElementById('pv-tab-view-content');
+  const wc=document.getElementById('pv-tab-write-content');
+  const bv=document.getElementById('pv-tab-btn-view');
+  const bw=document.getElementById('pv-tab-btn-write');
+  const gold='2px solid var(--gold)',none='2px solid transparent';
+  if(tab==='view'){
+    vc.style.display='';wc.style.display='none';
+    bv.style.borderBottom=gold;bv.style.color='var(--gold)';
+    bw.style.borderBottom=none;bw.style.color='var(--txt2)';
+  }else{
+    vc.style.display='none';wc.style.display='';
+    bv.style.borderBottom=none;bv.style.color='var(--txt2)';
+    bw.style.borderBottom=gold;bw.style.color='var(--gold)';
+    initPW('p4');
+  }
 }
 
 function renderPVEventTabsPublic(){
@@ -1200,8 +1231,32 @@ function setupTopBtn(btnId){
 }
 
 // ═══════════════════════════════════════════════════
-//  PAGE 5: REVIEW WRITE
+//  PAGE 5+6: REVIEW (merged)
 // ═══════════════════════════════════════════════════
+async function initReview(){
+  await syncSettingsFromSB();
+  switchRVTab('view');
+  initRV(1);
+}
+
+function switchRVTab(tab){
+  const vc=document.getElementById('rv-tab-view-content');
+  const wc=document.getElementById('rv-tab-write-content');
+  const bv=document.getElementById('rv-tab-btn-view');
+  const bw=document.getElementById('rv-tab-btn-write');
+  const gold='2px solid var(--gold)',none='2px solid transparent';
+  if(tab==='view'){
+    vc.style.display='';wc.style.display='none';
+    bv.style.borderBottom=gold;bv.style.color='var(--gold)';
+    bw.style.borderBottom=none;bw.style.color='var(--txt2)';
+  }else{
+    vc.style.display='none';wc.style.display='';
+    bv.style.borderBottom=none;bv.style.color='var(--txt2)';
+    bw.style.borderBottom=gold;bw.style.color='var(--gold)';
+    initRW();
+  }
+}
+
 let rwState={gender:null,number:null,verified:false};
 
 function renderRWEventSelector(){
@@ -1399,9 +1454,7 @@ function submitReview(){
   toast('리뷰가 등록되었습니다.','success');
 }
 
-// ═══════════════════════════════════════════════════
-//  PAGE 6: REVIEW VIEW
-// ═══════════════════════════════════════════════════
+// ─── REVIEW VIEW ───
 let rvPage=1;
 const RV_PER_PAGE=3;
 
@@ -1522,8 +1575,8 @@ function checkExpiredFiles(){
 //  뒤로가기
 // ═══════════════════════════════════════════════════
 const PAGE_BACK={
-  'preview-write':'main','preview-view':'main',
-  'review-write':'main','review-view':'main','faq':'main',
+  'application':'main','preview-view':'main',
+  'review':'main','faq':'main',
 };
 
 function goBack(){
