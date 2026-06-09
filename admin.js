@@ -2979,7 +2979,6 @@ function toggleMMEdit(id){
   area.appendChild(saveBtn);
   area.style.marginTop='8px';
   btn.textContent='닫기';
-  requestAnimationFrame(()=>inp.focus());
 }
 
 function saveMMLabel(id){
