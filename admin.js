@@ -2944,10 +2944,7 @@ function renderMMGrid(){
       )
       +'<input type="file" id="mm-file-'+m.id+'" accept="image/*" style="display:none;" onchange="handleMMBg(&quot;'+m.id+'&quot;,this)">'
       +'</div>'
-      +'<div id="mm-edit-area-'+m.id+'" style="display:none;margin-top:8px;">'
-      +'<input class="form-input" id="mm-inp-'+m.id+'" style="margin-bottom:6px;" value="'+m.label+'">'
-      +'<button class="btn btn-primary btn-sm btn-full" onclick="saveMMLabel(&quot;'+m.id+'&quot;)">저장</button>'
-      +'</div>'
+      +'<div id="mm-edit-area-'+m.id+'" style="display:none;margin-top:8px;"></div>'
       +'</div>';
   });
   grid.innerHTML=html;
@@ -2957,13 +2954,36 @@ function toggleMMEdit(id){
   const area=document.getElementById('mm-edit-area-'+id);
   const btn=document.getElementById('mm-edit-btn-'+id);
   const isOpen=area.style.display!=='none';
-  area.style.display=isOpen?'none':'block';
-  btn.textContent=isOpen?'글 수정':'닫기';
+  if(isOpen){
+    area.style.display='none';
+    btn.textContent='글 수정';
+    return;
+  }
+  const defs=DB.get('mainMenuDefs',[]);
+  const m=defs.find(x=>x.id===id);
+  const currentLabel=m?m.label:'';
+  area.innerHTML='';
+  const inp=document.createElement('input');
+  inp.className='form-input';
+  inp.id='mm-inp-'+id;
+  inp.lang='ko';
+  inp.setAttribute('inputmode','text');
+  inp.value=currentLabel;
+  inp.style.marginBottom='6px';
+  const saveBtn=document.createElement('button');
+  saveBtn.className='btn btn-primary btn-sm btn-full';
+  saveBtn.textContent='저장';
+  saveBtn.onclick=function(){saveMMLabel(id);};
+  area.appendChild(inp);
+  area.appendChild(saveBtn);
+  area.style.display='block';
+  btn.textContent='닫기';
+  requestAnimationFrame(()=>inp.focus());
 }
 
 function saveMMLabel(id){
   const inp=document.getElementById('mm-inp-'+id);
-  const val=inp.value.trim();
+  const val=inp?inp.value.trim():'';
   if(!val)return;
   const defs=DB.get('mainMenuDefs',[]);
   const m=defs.find(x=>x.id===id);
