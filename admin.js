@@ -2944,7 +2944,7 @@ function renderMMGrid(){
       )
       +'<input type="file" id="mm-file-'+m.id+'" accept="image/*" style="display:none;" onchange="handleMMBg(&quot;'+m.id+'&quot;,this)">'
       +'</div>'
-      +'<div id="mm-edit-area-'+m.id+'" style="display:none;margin-top:8px;"></div>'
+      +'<div id="mm-edit-area-'+m.id+'"></div>'
       +'</div>';
   });
   grid.innerHTML=html;
@@ -2953,39 +2953,33 @@ function renderMMGrid(){
 function toggleMMEdit(id){
   const area=document.getElementById('mm-edit-area-'+id);
   const btn=document.getElementById('mm-edit-btn-'+id);
-  const isOpen=area.style.display!=='none';
-  if(isOpen){
+  if(area.querySelector('input')){
     area.innerHTML='';
-    area.style.display='none';
+    area.style.marginTop='0';
     btn.textContent='글 수정';
     return;
   }
   const defs=DB.get('mainMenuDefs',[]);
   const m=defs.find(x=>x.id===id);
   const currentLabel=m?m.label:'';
-  // 1. 영역 먼저 노출 (컨테이너가 visible 상태여야 모바일 IME 정상 작동)
-  area.style.display='block';
+  const inp=document.createElement('input');
+  inp.type='text';
+  inp.className='form-input';
+  inp.id='mm-inp-'+id;
+  inp.lang='ko';
+  inp.setAttribute('inputmode','text');
+  inp.setAttribute('autocomplete','off');
+  inp.value=currentLabel;
+  inp.style.marginBottom='6px';
+  const saveBtn=document.createElement('button');
+  saveBtn.className='btn btn-primary btn-sm btn-full';
+  saveBtn.textContent='저장';
+  saveBtn.onclick=function(){saveMMLabel(id);};
+  area.appendChild(inp);
+  area.appendChild(saveBtn);
+  area.style.marginTop='8px';
   btn.textContent='닫기';
-  // 2. 다음 프레임에서 input 생성 및 포커스 (영역 렌더링 완료 후)
-  requestAnimationFrame(()=>{
-    area.innerHTML='';
-    const inp=document.createElement('input');
-    inp.type='text';
-    inp.className='form-input';
-    inp.id='mm-inp-'+id;
-    inp.lang='ko';
-    inp.setAttribute('inputmode','text');
-    inp.setAttribute('autocomplete','off');
-    inp.value=currentLabel;
-    inp.style.marginBottom='6px';
-    const saveBtn=document.createElement('button');
-    saveBtn.className='btn btn-primary btn-sm btn-full';
-    saveBtn.textContent='저장';
-    saveBtn.onclick=function(){saveMMLabel(id);};
-    area.appendChild(inp);
-    area.appendChild(saveBtn);
-    inp.focus();
-  });
+  requestAnimationFrame(()=>inp.focus());
 }
 
 function saveMMLabel(id){
