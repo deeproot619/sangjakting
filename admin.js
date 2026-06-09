@@ -531,15 +531,18 @@ function initMain(){
   const ig=DB.instagram();
   const menuActions=["go('preview-view')",`openExtLink('${ig}')`,`openExtLink('${ig}')`,  "go('preview-view')", "go('preview-write')", "go('review-write')", "go('faq')"];
   const defaultDefs=[
-    {id:'pv-view',label:'상작팅 Preview',icon:'👀',action:"go('preview-view')",bg:''},
-    {id:'rv-view',label:'상작팅 Review',icon:'💬',action:"go('review-view')",bg:''},
-    {id:'instagram',label:'상호작용 Instagram',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
-    {id:'pv-write',label:'상작팅 Preview 작성',icon:'✏️',action:"go('preview-write')",bg:''},
-    {id:'rv-write',label:'상작팅 Review 작성',icon:'📝',action:"go('review-write')",bg:''},
-    {id:'faq',label:'상호작용 FAQ',icon:'❓',action:"go('faq')",bg:''},
+    {id:'apply',label:'신청하기',icon:'📋',action:"go('application')",bg:''},
+    {id:'matching',label:'매칭 링크',icon:'💑',action:"openExtLink('https://script.google.com/macros/s/AKfycbxSB1QsTuKsYITuNu5swx1Rzo2rZzApimyFVBWEofF4ZgtJuQ002TAK2mPONC-3xhyhmw/exec')",bg:''},
+    {id:'instagram',label:'인스타그램',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
+    {id:'pv-view',label:'자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
+    {id:'rv-view',label:'상작팅 후기',icon:'💬',action:"go('review')",bg:''},
+    {id:'faq',label:'Q&A',icon:'❓',action:"go('faq')",bg:''},
   ];
   const savedDefs=DB.get('mainMenuDefs',null);
-  const menuDefs=savedDefs?defaultDefs.map((d,i)=>({...d,...savedDefs[i]||{},action:d.action})):defaultDefs;
+  const menuDefs=defaultDefs.map(d=>{
+    const s=savedDefs?savedDefs.find(x=>x.id===d.id):null;
+    return s?{...d,label:s.label||d.label,bg:s.bg||'',action:d.action}:d;
+  });
   const grid=document.getElementById('mainMenuGrid');
   grid.innerHTML=menuDefs.map(it=>`
     <div class="menu-item" onclick="${it.action}" style="${it.bg?'background:url('+it.bg+') center/cover no-repeat;border:none;':''}">
@@ -1364,6 +1367,7 @@ function goApplicants(scheduleId){go('admin-applicants',{scheduleId});}
 // ═══════════════════════════════════════════════════
 function initAdminEvents(){
   setupAdmin('events','admin-events');
+  initGenderTextCard();
   if(!evtDetailId){
     const events=DB.events();
     if(events.length>0){evtDetailId=events[0].id;appFieldsEvtId=events[0].id;}
@@ -2880,7 +2884,6 @@ function deleteFAQItem(id){
 // ═══════════════════════════════════════════════════
 function initAdminMainManage(){
   setupAdmin('mm','admin-main-manage');
-  initGenderTextCard();
   renderMMGrid();
 }
 
@@ -2911,18 +2914,19 @@ function toggleGenderTextEdit(){
 
 function renderMMGrid(){
   const DEFAULT_DEFS=[
-    {id:'pv-view',label:'참석자 자기소개서 모음',icon:'👀',bg:''},
-    {id:'rv-view',label:'상작팅 후기모음',icon:'💬',bg:''},
-    {id:'instagram',label:'상작팅 실시간 현장',icon:'📸',bg:''},
-    {id:'pv-write',label:'자기소개서 작성',icon:'✏️',bg:''},
-    {id:'rv-write',label:'상작팅 리뷰후기 작성',icon:'📝',bg:''},
-    {id:'faq',label:'상호작용 Q&A',icon:'❓',bg:''},
+    {id:'apply',label:'신청하기',icon:'📋',bg:''},
+    {id:'matching',label:'매칭 링크',icon:'💑',bg:''},
+    {id:'instagram',label:'인스타그램',icon:'📸',bg:''},
+    {id:'pv-view',label:'자기소개서 모음',icon:'👀',bg:''},
+    {id:'rv-view',label:'상작팅 후기',icon:'💬',bg:''},
+    {id:'faq',label:'Q&A',icon:'❓',bg:''},
   ];
-  let menuDefs=DB.get('mainMenuDefs',null);
-  if(!menuDefs||menuDefs.length===0){
-    menuDefs=DEFAULT_DEFS;
-    DB.set('mainMenuDefs',menuDefs);
-  }
+  const saved=DB.get('mainMenuDefs',null);
+  const menuDefs=DEFAULT_DEFS.map(d=>{
+    const s=saved?saved.find(x=>x.id===d.id):null;
+    return s?{...d,label:s.label||d.label,bg:s.bg||''}:d;
+  });
+  DB.set('mainMenuDefs',menuDefs);
   const grid=document.getElementById('mm-menu-grid');
   if(!grid)return;
   let html='';

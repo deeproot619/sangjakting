@@ -489,13 +489,14 @@ function closeNoticePopup(){
 
 
 // ── 작성방법 안내 ──
-function renderGuide(areaId, guideKey){
+function renderGuide(areaId, guideKey, defaultOpen=true){
   const area=document.getElementById(areaId);
   if(!area)return;
   const g=DB.get(guideKey,{enabled:false,content:''});
   if(!g.enabled||!g.content){area.innerHTML='';return;}
   const openKey=guideKey+'_open';
-  const isOpen=sessionStorage.getItem(openKey)!=='false';
+  const stored=sessionStorage.getItem(openKey);
+  const isOpen=stored!=null?stored!=='false':defaultOpen;
   area.innerHTML=`<div class="guide-box">
     <div class="guide-box-title" onclick="toggleGuide('${areaId}','${guideKey}')">
       <span class="guide-box-title-txt">📋 작성방법 안내</span>
@@ -910,7 +911,7 @@ function initPW(ctx){
   document.getElementById(ctx+'-pw-birth').value='';
   document.getElementById(ctx+'-pw-verify-msg').textContent='';
   document.getElementById(ctx+'-pw-form-area').style.display='none';
-  renderGuide(ctx+'-pw-guide-area','previewGuide');
+  renderGuide(ctx+'-pw-guide-area','previewGuide',false);
 }
 
 function renderPWEventTabs(ctx){
