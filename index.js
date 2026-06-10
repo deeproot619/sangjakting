@@ -281,6 +281,14 @@ const DB={
     if(evt&&evt.fileRequired!==undefined)return evt.fileRequired;
     return true;
   },
+  // ── 칵테일 주문 ──
+  orderOrders:()=>DB.get('orders',[]),
+  saveOrderOrders:v=>DB.set('orders',v),
+  orderMenu:()=>DB.get('order_menu',null),
+  saveOrderMenu:v=>DB.set('order_menu',v),
+  orderMaxGlasses:()=>DB.get('order_max_glasses',2),
+  orderPassword:()=>DB.get('order_password',''),
+  orderActiveSeats:()=>DB.get('order_active_seats',null),
 };
 
 // ═══════════════════════════════════════════════════
@@ -416,6 +424,7 @@ const PAGES={
   'admin-pq':'page-admin-pq',
   'admin-rq':'page-admin-rq',
   'admin-faq':'page-admin-faq',
+  'order':'page-order',
 };
 const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq']; // redirect to admin.html
 
@@ -540,6 +549,7 @@ function go(page,params={},pushState=true){
   else if(page==='preview-view')initPV();
   else if(page==='review')initReview();
   else if(page==='faq')initFAQ();
+  else if(page==='order')initOrder();
 }
 
 //  PAGE 1: MAIN
@@ -640,6 +650,7 @@ async function initMain(){
     {id:'pv-view',label:'자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
     {id:'rv-view',label:'상작팅 후기',icon:'💬',action:"go('review')",bg:''},
     {id:'faq',label:'Q&A',icon:'❓',action:"go('faq')",bg:''},
+    {id:'order',label:'칵테일 주문',icon:'🍹',action:"go('order')",bg:''},
   ];
   // DB에 저장된 라벨/배경 불러오기 (id 기준으로 매칭)
   const savedDefs=DB.get('mainMenuDefs',null);
@@ -1577,7 +1588,7 @@ function checkExpiredFiles(){
 // ═══════════════════════════════════════════════════
 const PAGE_BACK={
   'application':'main','preview-view':'main',
-  'review':'main','faq':'main',
+  'review':'main','faq':'main','order':'main',
 };
 
 function goBack(){
@@ -1592,6 +1603,234 @@ window.addEventListener('popstate',function(e){
     go('main',{},false);
   }
 });
+
+// ═══════════════════════════════════════════════════
+//  칵테일 주문 (ORDER)
+// ═══════════════════════════════════════════════════
+const ORD_SEAT_POSITIONS={
+  1:{x:19,y:25},  2:{x:19,y:33},  3:{x:19,y:42},  4:{x:19,y:50},
+  5:{x:19,y:58},  6:{x:19,y:66},  7:{x:19,y:74},
+  11:{x:39,y:25}, 12:{x:39,y:33}, 13:{x:39,y:42}, 14:{x:39,y:50},
+  15:{x:39,y:58}, 16:{x:39,y:66}, 17:{x:39,y:74},
+  21:{x:67,y:25}, 22:{x:67,y:33}, 23:{x:67,y:41}, 24:{x:67,y:49},
+  25:{x:67,y:57}, 26:{x:67,y:65}, 27:{x:67,y:73},
+  28:{x:57,y:73},
+  31:{x:87,y:25}, 32:{x:87,y:33}, 33:{x:87,y:41}, 34:{x:87,y:49},
+  35:{x:87,y:57}, 36:{x:87,y:65}, 37:{x:87,y:73},
+  38:{x:87,y:81},
+  41:{x:29,y:19}, 42:{x:29,y:81},
+  43:{x:56,y:87}, 44:{x:67,y:87}, 45:{x:78,y:87}
+};
+const ORD_MENU_DEFAULTS=[
+  {id:'kalvados',     name:'깔바도르',        desc:'', abv:'', category:'HIGH'},
+  {id:'gimmade',      name:'깁마더',          desc:'', abv:'', category:'HIGH'},
+  {id:'blackwatch',   name:'블랙와치',        desc:'', abv:'', category:'HIGH'},
+  {id:'white_russian',name:'화이트 러시안',   desc:'', abv:'', category:'HIGH'},
+  {id:'suntory',      name:'산토리 하이볼',   desc:'', abv:'', category:'MID'},
+  {id:'gin_tonic',    name:'진토닉',          desc:'', abv:'', category:'MID'},
+  {id:'kahlua',       name:'깔루아 밀크',     desc:'', abv:'', category:'MID'},
+  {id:'cassis',       name:'카시스오렌지',    desc:'', abv:'', category:'MID'},
+  {id:'sunset',       name:'선셋에이드',      desc:'', abv:'', category:'NON'},
+  {id:'americano',    name:'아이스아메리카노',desc:'', abv:'', category:'NON'},
+];
+const ORD_CATS=[
+  {key:'HIGH',label:'HIGH',      color:'#e07070'},
+  {key:'MID', label:'MIDDLE~LOW',color:'#c9a96e'},
+  {key:'NON', label:'NON-ALCOL', color:'#52c98a'},
+];
+let ordActiveMenu=[];
+let ordS={gender:null,num:null,seat:null,items:[]};
+
+function ordInitMenu(){
+  const saved=DB.orderMenu();
+  ordActiveMenu=(saved&&saved.length)?saved:ORD_MENU_DEFAULTS.map(m=>({...m}));
+}
+function ordGetActiveSeats(){
+  const saved=DB.orderActiveSeats();
+  return saved!==null?saved:Object.keys(ORD_SEAT_POSITIONS).map(Number);
+}
+function ordSeatGlassCount(seatNum){
+  return DB.orderOrders().filter(o=>o.seatNumber===seatNum).reduce((s,o)=>s+o.items.length,0);
+}
+function ordToast(msg,type='info'){
+  const w=document.getElementById('ord-toast-w');
+  if(!w)return;
+  const t=document.createElement('div');
+  t.style.cssText='background:var(--bg4);border:1px solid var(--bd);color:var(--txt);padding:10px 22px;border-radius:var(--r2);font-size:13px;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.5);';
+  if(type==='success')t.style.color='var(--ok)';
+  if(type==='error')t.style.color='var(--err)';
+  t.textContent=msg; w.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+function ordEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function initOrder(){
+  await syncSettingsFromSB();
+  ordInitMenu();
+  ordS={gender:null,num:null,seat:null,items:[]};
+  ['ord-step1','ord-step2','ord-pending'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  const s0=document.getElementById('ord-step0'); if(s0)s0.style.display='';
+  const pwi=document.getElementById('ord-pw-input'); if(pwi)pwi.value='';
+  const pwe=document.getElementById('ord-pw-err'); if(pwe)pwe.style.display='none';
+  const maleBtn=document.getElementById('ord-male'); if(maleBtn)maleBtn.classList.remove('selected');
+  const femaleBtn=document.getElementById('ord-female'); if(femaleBtn)femaleBtn.classList.remove('selected');
+  const numArea=document.getElementById('ord-num-area'); if(numArea)numArea.style.display='none';
+  // 비밀번호 없으면 바로 1단계
+  if(!String(DB.orderPassword()).trim()) ordEnterOrder();
+}
+
+function ordCheckPassword(){
+  const inp=document.getElementById('ord-pw-input');
+  const val=(inp.value||'').trim();
+  const pw=String(DB.orderPassword()).trim();
+  const errEl=document.getElementById('ord-pw-err');
+  if(!val){errEl.textContent='비밀번호를 입력해주세요.';errEl.style.display='';return;}
+  if(val!==pw){errEl.textContent='비밀번호가 맞지 않습니다.';errEl.style.display='';inp.value='';return;}
+  errEl.style.display='none';
+  ordEnterOrder();
+}
+function ordEnterOrder(){
+  const s0=document.getElementById('ord-step0'); if(s0)s0.style.display='none';
+  const s1=document.getElementById('ord-step1'); if(s1)s1.style.display='';
+}
+
+function ordSelectGender(g){
+  ordS.gender=g; ordS.num=null;
+  const maleBtn=document.getElementById('ord-male'); if(maleBtn)maleBtn.classList.toggle('selected',g==='남');
+  const femaleBtn=document.getElementById('ord-female'); if(femaleBtn)femaleBtn.classList.toggle('selected',g==='여');
+  const grid=document.getElementById('ord-num-grid');
+  if(!grid)return;
+  grid.innerHTML='';
+  for(let i=1;i<=12;i++){
+    const b=document.createElement('button');
+    b.className='num-btn'; b.textContent=i+'번'; b.onclick=(()=>{const n=i;return()=>ordPickNum(n);})();
+    grid.appendChild(b);
+  }
+  const numArea=document.getElementById('ord-num-area'); if(numArea)numArea.style.display='';
+}
+
+function ordPickNum(num){
+  ordS.num=num;
+  const pending=DB.orderOrders().find(o=>o.gender===ordS.gender&&o.datingNumber===num&&o.status==='pending');
+  if(pending){ordShowPending(pending);return;}
+  const s1=document.getElementById('ord-step1'); if(s1)s1.style.display='none';
+  const s2=document.getElementById('ord-step2'); if(s2)s2.style.display='';
+  ordRenderSeats();
+}
+
+function ordBackToStep1(){
+  ordS.num=null;
+  const s1=document.getElementById('ord-step1'); if(s1)s1.style.display='';
+  const s2=document.getElementById('ord-step2'); if(s2)s2.style.display='none';
+}
+
+function ordRenderSeats(){
+  const active=ordGetActiveSeats(), ol=document.getElementById('ord-seat-ol');
+  if(!ol)return;
+  ol.innerHTML=Object.entries(ORD_SEAT_POSITIONS).map(([id,p])=>{
+    const n=parseInt(id), on=active.includes(n);
+    return `<button onclick="${on?`ordPickSeat(${n})`:'void(0)'}" title="${on?n+'번 자리 선택':'비활성화된 자리'}"
+      style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);
+      width:28px;height:28px;border-radius:50%;padding:0;font-family:inherit;
+      border:${on?'2px solid rgba(201,169,110,.8)':'none'};
+      background:${on?'rgba(201,169,110,.08)':'transparent'};
+      cursor:${on?'pointer':'default'};"></button>`;
+  }).join('');
+}
+
+function ordPickSeat(n){
+  ordS.seat=n; ordS.items=[];
+  const maxG=DB.orderMaxGlasses(), used=ordSeatGlassCount(n);
+  const seatEl=document.getElementById('ord-menu-seat-num'); if(seatEl)seatEl.textContent=n;
+  const capEl=document.getElementById('ord-menu-capacity-info'); if(capEl)capEl.textContent=`남은 잔 수: ${maxG-used} / ${maxG}`;
+  const modal=document.getElementById('ord-menu-modal'); if(modal)modal.style.display='';
+  ordRenderMenuItems();
+}
+
+function ordRenderMenuItems(){
+  const list=document.getElementById('ord-menu-list'); if(!list)return;
+  const maxG=DB.orderMaxGlasses(), used=ordSeatGlassCount(ordS.seat);
+  const remaining=maxG-used, canAdd=ordS.items.length<remaining;
+  function itemHtml(m){
+    const sel=ordS.items.includes(m.id), disabled=!sel&&!canAdd;
+    return `<div onclick="${disabled?'void(0)':`ordToggleItem('${m.id}')`}"
+      style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--r2);
+      cursor:${disabled?'not-allowed':'pointer'};transition:.15s;opacity:${disabled?'.4':'1'};
+      background:${sel?'var(--gold3)':disabled?'transparent':'var(--bg4)'};
+      border:1px solid ${sel?'rgba(201,169,110,.4)':disabled?'var(--bd)':'var(--bd2)'};margin-bottom:6px;">
+      <div style="width:20px;height:20px;border-radius:4px;flex-shrink:0;
+        border:2px solid ${sel?'var(--gold)':'rgba(201,169,110,.4)'};background:${sel?'var(--gold)':'transparent'};
+        display:flex;align-items:center;justify-content:center;font-size:12px;color:#000;font-weight:700;">${sel?'✓':''}</div>
+      <div style="flex:1;">
+        <div style="font-size:15px;color:${sel?'var(--gold)':'var(--txt)'};">
+          ${ordEsc(m.name)}${m.abv?` <span style="font-size:12px;font-weight:400;color:${sel?'rgba(201,169,110,.7)':'var(--txt3)'};">(${ordEsc(m.abv)})</span>`:''}
+        </div>
+        ${m.desc?`<div style="font-size:12px;color:var(--txt2);margin-top:3px;">${ordEsc(m.desc)}</div>`:''}
+      </div>
+    </div>`;
+  }
+  const activeCats=ORD_CATS.filter(c=>ordActiveMenu.some(m=>(m.category||'MID')===c.key));
+  let html=`<div style="display:flex;gap:6px;margin-bottom:14px;">`;
+  activeCats.forEach(c=>{
+    html+=`<div style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.08em;border:1px solid ${c.color};color:${c.color};background:${c.color}22;">${c.label}</div>`;
+  });
+  html+=`</div>`;
+  ORD_CATS.forEach(cat=>{
+    const items=ordActiveMenu.filter(m=>(m.category||'MID')===cat.key); if(!items.length)return;
+    html+=`<div style="font-size:11px;font-weight:700;letter-spacing:.1em;color:${cat.color};padding:8px 2px;border-top:1px solid var(--bd);margin-top:2px;">${cat.label}</div>`;
+    html+=items.map(m=>itemHtml(m)).join('');
+  });
+  list.innerHTML=html;
+  ordUpdateSelDisplay();
+}
+
+function ordToggleItem(id){
+  const i=ordS.items.indexOf(id);
+  if(i>=0){ordS.items.splice(i,1);}
+  else{
+    const rem=DB.orderMaxGlasses()-ordSeatGlassCount(ordS.seat);
+    if(ordS.items.length>=rem){ordToast(`최대 ${rem}잔까지 선택 가능합니다.`,'error');return;}
+    ordS.items.push(id);
+  }
+  ordRenderMenuItems();
+}
+function ordUpdateSelDisplay(){
+  const el=document.getElementById('ord-sel-display'); if(!el)return;
+  if(!ordS.items.length){el.textContent='(선택 없음)';return;}
+  el.textContent=ordS.items.map(id=>ordActiveMenu.find(m=>m.id===id)?.name).filter(Boolean).join(', ');
+}
+function ordCloseMenu(){
+  const modal=document.getElementById('ord-menu-modal'); if(modal)modal.style.display='none';
+  ordS.seat=null; ordS.items=[];
+}
+
+function ordSubmitOrder(){
+  if(!ordS.items.length){ordToast('메뉴를 선택해주세요.','error');return;}
+  const maxG=DB.orderMaxGlasses(), used=ordSeatGlassCount(ordS.seat), rem=maxG-used;
+  if(ordS.items.length>rem){ordToast(`이 좌석은 ${rem}잔만 더 주문 가능합니다.`,'error');return;}
+  const order={
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    gender:ordS.gender, datingNumber:ordS.num, seatNumber:ordS.seat,
+    items:[...ordS.items], status:'pending', orderedAt:Date.now()
+  };
+  const orders=DB.orderOrders(); orders.push(order); DB.saveOrderOrders(orders);
+  const modal=document.getElementById('ord-menu-modal'); if(modal)modal.style.display='none';
+  ordShowPending(order);
+  ordToast('주문이 접수되었습니다!','success');
+  // 잔 수 다 찼으면 좌석 비활성화
+  if(used+ordS.items.length>=maxG){
+    const seats=ordGetActiveSeats().filter(s=>s!==ordS.seat);
+    DB.set('order_active_seats',seats);
+  }
+}
+
+function ordShowPending(o){
+  ['ord-step0','ord-step1','ord-step2'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  const pending=document.getElementById('ord-pending'); if(pending)pending.style.display='';
+  const names=o.items.map(id=>ordActiveMenu.find(m=>m.id===id)?.name).filter(Boolean).join(', ');
+  const info=document.getElementById('ord-pending-info');
+  if(info)info.innerHTML=`<strong style="color:var(--txt);">${o.gender}자 ${o.datingNumber}번</strong>&nbsp;·&nbsp;좌석 <strong style="color:var(--txt);">${o.seatNumber}번</strong><br><span style="color:var(--gold);font-size:15px;">${names}</span>`;
+}
 
 // ═══════════════════════════════════════════════════
 // Start

@@ -533,6 +533,87 @@
   </div>
 </div>
 
+<!-- ────── PAGE: ADMIN ORDER ────── -->
+<div class="page" id="page-admin-order">
+  <div class="pub-header">
+    <div class="site-logo" onclick="go('admin-main')">상호작용 관리자</div>
+    <div class="pub-header-nav">
+      <button class="back-btn" onclick="goBack()">← 뒤로</button>
+    </div>
+  </div>
+  <div class="container">
+    <div class="page-title">🍹 칵테일 주문 관리</div>
+    <div style="display:flex;gap:5px;margin-bottom:20px;" id="aord-tab-bar">
+      <button class="btn btn-primary btn-sm" id="aord-tb-orders"   onclick="aordSwitchTab('orders')">주문관리</button>
+      <button class="btn btn-secondary btn-sm" id="aord-tb-menu"   onclick="aordSwitchTab('menu')">메뉴관리</button>
+      <button class="btn btn-secondary btn-sm" id="aord-tb-settings" onclick="aordSwitchTab('settings')">설정</button>
+    </div>
+
+    <!-- 주문관리 -->
+    <div id="aord-pane-orders">
+      <div class="card">
+        <div class="card-hd">좌석 활성화 관리</div>
+        <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;">자리를 눌러 <span style="color:var(--gold);">활성(금색)</span> / <span style="color:var(--txt3);">비활성(회색)</span> 전환</div>
+        <div style="position:relative;width:100%;line-height:0;">
+          <img src="./상호작용 내부 배치도.png" style="width:100%;display:block;border-radius:8px;" onload="aordRenderSeats()">
+          <div id="aord-seat-ol" style="position:absolute;inset:0;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">주문 목록</div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="aordRenderOrders()">🔄 새로고침</button>
+            <button class="btn btn-danger btn-sm" onclick="aordClearAll()">전체 초기화</button>
+          </div>
+        </div>
+        <div id="aord-order-list"></div>
+      </div>
+    </div>
+
+    <!-- 메뉴관리 -->
+    <div id="aord-pane-menu" style="display:none;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div class="card-hd" style="margin-bottom:0;border:none;padding:0;">메뉴 목록</div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="aordResetMenu()">되돌리기</button>
+            <button class="btn btn-secondary btn-sm" id="aord-menu-save-btn" onclick="aordSaveMenu()">저장</button>
+          </div>
+        </div>
+        <div id="aord-menu-list"></div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:12px;width:100%;" onclick="aordAddMenuItem()">+ 메뉴 추가</button>
+      </div>
+    </div>
+
+    <!-- 설정 -->
+    <div id="aord-pane-settings" style="display:none;">
+      <div class="card">
+        <div class="card-hd">주문 설정</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd);margin-bottom:14px;">
+          <div>
+            <div style="font-size:14px;color:var(--txt);">좌석당 최대 주문 잔 수</div>
+            <div style="font-size:12px;color:var(--txt3);margin-top:3px;">잔 수를 채운 좌석은 자동 비활성화됩니다</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button onclick="aordAdjMaxGlasses(-1)" class="btn btn-secondary btn-sm" style="width:32px;padding:6px 0;text-align:center;">−</button>
+            <span id="aord-max-glasses-display" style="font-size:22px;font-weight:700;color:var(--gold);min-width:28px;text-align:center;">2</span>
+            <button onclick="aordAdjMaxGlasses(1)" class="btn btn-secondary btn-sm" style="width:32px;padding:6px 0;text-align:center;">+</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:14px;color:var(--txt);margin-bottom:4px;">오늘의 비밀번호</div>
+          <div style="font-size:12px;color:var(--txt3);margin-bottom:10px;">비워두면 비밀번호 없이 바로 입장됩니다</div>
+          <div style="display:flex;gap:8px;">
+            <input id="aord-pw-input" class="form-input" type="number" inputmode="numeric" placeholder="숫자 입력 (예: 2)" style="flex:1;font-size:18px;letter-spacing:.1em;" onkeydown="if(event.key==='Enter')aordSavePassword()">
+            <button class="btn btn-primary btn-sm" onclick="aordSavePassword()" style="flex-shrink:0;">저장</button>
+          </div>
+          <div id="aord-pw-current" style="font-size:12px;color:var(--txt3);margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <script src="admin.js"></script>
 
 <!-- ────── PAGE: ADMIN POPUP ────── -->

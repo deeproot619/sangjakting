@@ -216,6 +216,17 @@ const DB={
   ]),
   saveFaq:v=>DB.set('faq',v),
   isAdmin:()=>DB.get('auth',false),
+  // ── 칵테일 주문 ──
+  orderOrders:()=>DB.get('orders',[]),
+  saveOrderOrders:v=>DB.set('orders',v),
+  orderMenu:()=>DB.get('order_menu',null),
+  saveOrderMenu:v=>DB.set('order_menu',v),
+  orderMaxGlasses:()=>DB.get('order_max_glasses',2),
+  saveOrderMaxGlasses:v=>DB.set('order_max_glasses',v),
+  orderPassword:()=>DB.get('order_password',''),
+  saveOrderPassword:v=>DB.set('order_password',v),
+  orderActiveSeats:()=>DB.get('order_active_seats',null),
+  saveOrderActiveSeats:v=>DB.set('order_active_seats',v),
   setAdmin:v=>DB.set('auth',v),
   events:()=>DB.get('events',[{id:'evt_default',name:'상작팅',isActive:true,previewEnabled:true,reviewEnabled:true,maleCapacity:12,femaleCapacity:12,fileRequired:true}]),
   saveEvents:v=>DB.set('events',v),
@@ -384,8 +395,9 @@ const PAGES={
   'admin-faq':'page-admin-faq',
   'admin-popup':'page-admin-popup',
   'admin-events':'page-admin-events',
+  'admin-order':'page-admin-order',
 };
-const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq','admin-popup','admin-events'];
+const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq','admin-popup','admin-events','admin-order'];
 
 let currentPage='main';
 function go(page,params={},pushState=true){
@@ -420,6 +432,7 @@ function go(page,params={},pushState=true){
   else if(page==='admin-faq')initAdminFAQ();
   else if(page==='admin-popup')initAdminPopup();
   else if(page==='admin-events')initAdminEvents();
+  else if(page==='admin-order')initAdminOrder();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1149,6 +1162,7 @@ function initAdminMain(){
     {icon:'📝',label:'예약신청 안내문구 관리',page:'admin-res'},
     {icon:'🗂',label:'FAQ 관리',page:'admin-faq'},
     {icon:'📢',label:'팝업 관리',page:'admin-popup'},
+    {icon:'🍹',label:'칵테일 주문 관리',page:'admin-order'},
   ];
   document.getElementById('admin-main-grid').innerHTML=items.map(it=>`
     <div class="admin-card-item" onclick="go('${it.page}')">
@@ -3137,6 +3151,255 @@ function downloadApplicantsExcel(){
   toast('엑셀 파일이 다운로드되었습니다.','success');
 }
 
+// ═══════════════════════════════════════════════════
+//  칵테일 주문 관리 (ADMIN ORDER)
+// ═══════════════════════════════════════════════════
+const AORD_SEAT_POSITIONS={
+  1:{x:19,y:25},  2:{x:19,y:33},  3:{x:19,y:42},  4:{x:19,y:50},
+  5:{x:19,y:58},  6:{x:19,y:66},  7:{x:19,y:74},
+  11:{x:39,y:25}, 12:{x:39,y:33}, 13:{x:39,y:42}, 14:{x:39,y:50},
+  15:{x:39,y:58}, 16:{x:39,y:66}, 17:{x:39,y:74},
+  21:{x:67,y:25}, 22:{x:67,y:33}, 23:{x:67,y:41}, 24:{x:67,y:49},
+  25:{x:67,y:57}, 26:{x:67,y:65}, 27:{x:67,y:73},
+  28:{x:57,y:73},
+  31:{x:87,y:25}, 32:{x:87,y:33}, 33:{x:87,y:41}, 34:{x:87,y:49},
+  35:{x:87,y:57}, 36:{x:87,y:65}, 37:{x:87,y:73},
+  38:{x:87,y:81},
+  41:{x:29,y:19}, 42:{x:29,y:81},
+  43:{x:56,y:87}, 44:{x:67,y:87}, 45:{x:78,y:87}
+};
+const AORD_MENU_DEFAULTS=[
+  {id:'kalvados',     name:'깔바도르',        desc:'', abv:'', category:'HIGH'},
+  {id:'gimmade',      name:'깁마더',          desc:'', abv:'', category:'HIGH'},
+  {id:'blackwatch',   name:'블랙와치',        desc:'', abv:'', category:'HIGH'},
+  {id:'white_russian',name:'화이트 러시안',   desc:'', abv:'', category:'HIGH'},
+  {id:'suntory',      name:'산토리 하이볼',   desc:'', abv:'', category:'MID'},
+  {id:'gin_tonic',    name:'진토닉',          desc:'', abv:'', category:'MID'},
+  {id:'kahlua',       name:'깔루아 밀크',     desc:'', abv:'', category:'MID'},
+  {id:'cassis',       name:'카시스오렌지',    desc:'', abv:'', category:'MID'},
+  {id:'sunset',       name:'선셋에이드',      desc:'', abv:'', category:'NON'},
+  {id:'americano',    name:'아이스아메리카노',desc:'', abv:'', category:'NON'},
+];
+const AORD_CATS=[
+  {key:'HIGH',label:'HIGH',      color:'#e07070'},
+  {key:'MID', label:'MIDDLE~LOW',color:'#c9a96e'},
+  {key:'NON', label:'NON-ALCOL', color:'#52c98a'},
+];
+let aordActiveMenu=[];
+let aordMenuDirty=false;
+let _aordRealtimeCh=null;
+
+function aordGetActiveSeats(){
+  const saved=DB.orderActiveSeats();
+  return saved!==null?saved:Object.keys(AORD_SEAT_POSITIONS).map(Number);
+}
+function aordSeatGlassCount(seatNum){
+  return DB.orderOrders().filter(o=>o.seatNumber===seatNum).reduce((s,o)=>s+o.items.length,0);
+}
+function aordEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function aordInitMenu(){
+  const saved=DB.orderMenu();
+  aordActiveMenu=(saved&&saved.length)?saved:AORD_MENU_DEFAULTS.map(m=>({...m}));
+}
+
+async function initAdminOrder(){
+  setupAdmin('admin-order','admin-order');
+  aordInitMenu();
+  aordSwitchTab('orders');
+  aordRenderOrders();
+  aordRenderSeats();
+  aordLoadSettings();
+  aordStartRealtime();
+}
+
+function aordSwitchTab(tab){
+  ['orders','menu','settings'].forEach(t=>{
+    const pane=document.getElementById('aord-pane-'+t); if(pane)pane.style.display=t===tab?'':'none';
+    const btn=document.getElementById('aord-tb-'+t);
+    if(btn){btn.className=t===tab?'btn btn-primary btn-sm':'btn btn-secondary btn-sm';}
+  });
+  if(tab==='menu')aordRenderMenu();
+  if(tab==='settings')aordLoadSettings();
+}
+
+// ── Realtime 구독 ──
+function aordStartRealtime(){
+  if(!_sb)return;
+  if(_aordRealtimeCh){_sb.removeChannel(_aordRealtimeCh);_aordRealtimeCh=null;}
+  _aordRealtimeCh=_sb.channel('aord-orders')
+    .on('postgres_changes',{event:'*',schema:'public',table:'app_data',filter:'key=eq.orders'},payload=>{
+      try{
+        const newOrders=JSON.parse(payload.new.value||'[]');
+        localStorage.setItem('sjt_orders',JSON.stringify(newOrders));
+        aordRenderOrders();
+        aordRenderSeats();
+        aordShowNoti();
+      }catch(e){}
+    })
+    .subscribe();
+}
+function aordShowNoti(){
+  let el=document.getElementById('aord-noti');
+  if(!el){
+    el=document.createElement('div');
+    el.id='aord-noti';
+    el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--gold);color:#000;padding:12px 28px;border-radius:var(--r2);font-size:14px;font-weight:700;z-index:1000;box-shadow:0 4px 24px rgba(0,0,0,.6);white-space:nowrap;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  el.textContent='🔔 새로운 주문이 들어왔습니다';
+  el.style.display='block';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.style.display='none',4000);
+}
+
+// ── 주문 목록 ──
+function aordRenderOrders(){
+  const el=document.getElementById('aord-order-list'); if(!el)return;
+  const all=DB.orderOrders();
+  if(!all.length){el.innerHTML='<div class="empty-state">주문 없음</div>';return;}
+  const sort=(a,b)=>a.orderedAt-b.orderedAt;
+  const pending=all.filter(o=>o.status==='pending').sort(sort);
+  const served=all.filter(o=>o.status==='served').sort(sort);
+  let html='';
+  if(pending.length){
+    html+=`<div style="font-size:12px;font-weight:600;color:var(--gold);margin-bottom:8px;">⏳ 대기 중 (${pending.length}건)</div>`;
+    html+=pending.map(o=>aordOrderCard(o)).join('');
+  }
+  if(served.length){
+    html+=`<div style="font-size:12px;font-weight:600;color:var(--txt3);margin-top:16px;margin-bottom:8px;">✓ 서빙 완료 (${served.length}건)</div>`;
+    html+=served.map(o=>aordOrderCard(o,true)).join('');
+  }
+  el.innerHTML=html;
+}
+function aordOrderCard(o,done=false){
+  const names=o.items.map(id=>aordActiveMenu.find(m=>m.id===id)?.name).filter(Boolean).join(', ');
+  const t=new Date(o.orderedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  const total=aordSeatGlassCount(o.seatNumber), maxG=DB.orderMaxGlasses(), full=total>=maxG;
+  return `<div style="background:var(--bg4);border:1px solid var(--bd2);border-radius:var(--r2);padding:12px;margin-bottom:8px;${done?'opacity:.45':''}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-size:13px;font-weight:600;color:var(--txt);">
+        ${o.gender}자 ${o.datingNumber}번
+        <span style="color:var(--txt3);font-weight:400;"> 좌석 ${o.seatNumber}번</span>
+        <span style="font-size:11px;color:${full?'var(--err)':'var(--txt3)'};">&nbsp;(${total}/${maxG}잔)</span>
+      </span>
+      <span style="font-size:11px;color:var(--txt3);">${t}</span>
+    </div>
+    <div style="font-size:13px;color:var(--gold);margin-bottom:10px;">${names}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${!done
+        ?`<button class="btn btn-success btn-sm" onclick="aordServe('${o.id}')">✓ 서빙 완료</button>
+          <button class="btn btn-danger btn-sm" onclick="aordClearSeat(${o.seatNumber})">좌석 초기화</button>`
+        :'<span style="font-size:11px;color:var(--txt3);">서빙 완료됨</span>'}
+    </div>
+  </div>`;
+}
+function aordServe(id){
+  const orders=DB.orderOrders(), o=orders.find(x=>x.id===id); if(!o)return;
+  o.status='served'; DB.saveOrderOrders(orders); aordRenderOrders();
+  toast(`${o.gender}자 ${o.datingNumber}번 서빙 완료`,'success');
+}
+function aordClearSeat(seatNum){
+  DB.saveOrderOrders(DB.orderOrders().filter(o=>o.seatNumber!==seatNum));
+  // 해당 좌석 다시 활성화
+  const seats=aordGetActiveSeats();
+  if(!seats.includes(seatNum)){seats.push(seatNum); DB.saveOrderActiveSeats(seats);}
+  aordRenderOrders(); aordRenderSeats();
+  toast(`좌석 ${seatNum}번 초기화`,'success');
+}
+function aordClearAll(){
+  if(!confirm('전체 주문을 초기화하시겠습니까?\n모든 좌석이 다시 활성화됩니다.'))return;
+  DB.saveOrderOrders([]);
+  DB.saveOrderActiveSeats(Object.keys(AORD_SEAT_POSITIONS).map(Number));
+  aordRenderOrders(); aordRenderSeats();
+  toast('전체 주문 초기화 완료','success');
+}
+
+// ── 좌석 오버레이 ──
+function aordRenderSeats(){
+  const active=aordGetActiveSeats(), ol=document.getElementById('aord-seat-ol'); if(!ol)return;
+  ol.innerHTML=Object.entries(AORD_SEAT_POSITIONS).map(([id,p])=>{
+    const n=parseInt(id), on=active.includes(n);
+    return `<button onclick="aordToggleSeat(${n})" title="${on?n+'번 비활성화':n+'번 활성화'}"
+      style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);
+      width:28px;height:28px;border-radius:50%;padding:0;font-family:inherit;cursor:pointer;
+      border:${on?'2px solid rgba(201,169,110,.8)':'2px solid rgba(255,255,255,.2)'};
+      background:${on?'rgba(201,169,110,.12)':'rgba(255,255,255,.04)'};"></button>`;
+  }).join('');
+}
+function aordToggleSeat(n){
+  const seats=aordGetActiveSeats(), i=seats.indexOf(n);
+  if(i>=0)seats.splice(i,1); else seats.push(n);
+  DB.saveOrderActiveSeats(seats); aordRenderSeats();
+}
+
+// ── 메뉴관리 ──
+function aordSetDirty(dirty){
+  aordMenuDirty=dirty;
+  const btn=document.getElementById('aord-menu-save-btn'); if(!btn)return;
+  if(dirty){btn.textContent='저장 *';btn.className='btn btn-primary btn-sm';}
+  else{btn.textContent='저장';btn.className='btn btn-secondary btn-sm';}
+}
+function aordSaveMenu(){DB.saveOrderMenu(aordActiveMenu);aordSetDirty(false);toast('메뉴가 저장되었습니다.','success');}
+function aordResetMenu(){
+  if(aordMenuDirty&&!confirm('저장하지 않은 변경사항이 있습니다. 되돌리시겠습니까?'))return;
+  aordInitMenu();aordSetDirty(false);aordRenderMenu();toast('변경사항을 되돌렸습니다.','info');
+}
+function aordRenderMenu(){
+  const list=document.getElementById('aord-menu-list'); if(!list)return;
+  if(!aordActiveMenu.length){list.innerHTML='<div class="empty-state">메뉴 없음</div>';return;}
+  list.innerHTML=aordActiveMenu.map((m,i)=>`
+    <div style="padding:12px 0;${i<aordActiveMenu.length-1?'border-bottom:1px solid var(--bd);':''}">
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <input class="form-input" value="${aordEsc(m.name)}" placeholder="메뉴명 *"
+          oninput="aordUpdateItem(${i},'name',this.value)" style="flex:1;">
+        <input class="form-input" value="${aordEsc(m.abv)}" placeholder="도수"
+          oninput="aordUpdateItem(${i},'abv',this.value)" style="width:80px;">
+        <button onclick="aordDelItem(${i})" class="btn btn-danger btn-sm">✕</button>
+      </div>
+      <div style="margin-bottom:6px;">
+        <select class="form-select" onchange="aordUpdateItem(${i},'category',this.value)">
+          <option value="HIGH" ${(m.category||'MID')==='HIGH'?'selected':''}>HIGH</option>
+          <option value="MID"  ${(m.category||'MID')==='MID' ?'selected':''}>MIDDLE~LOW</option>
+          <option value="NON"  ${(m.category||'MID')==='NON' ?'selected':''}>NON-ALCOL</option>
+        </select>
+      </div>
+      <input class="form-input" value="${aordEsc(m.desc)}" placeholder="설명 (선택)"
+        oninput="aordUpdateItem(${i},'desc',this.value)">
+    </div>
+  `).join('');
+}
+function aordUpdateItem(i,field,value){aordActiveMenu[i][field]=value;aordSetDirty(true);}
+function aordAddMenuItem(){
+  aordActiveMenu.push({id:'item_'+Date.now(),name:'',desc:'',abv:'',category:'MID'});
+  aordSetDirty(true);aordRenderMenu();
+}
+function aordDelItem(i){
+  if(!confirm(`"${aordActiveMenu[i].name||'이 메뉴'}"를 삭제하시겠습니까?`))return;
+  aordActiveMenu.splice(i,1);aordSetDirty(true);aordRenderMenu();
+}
+
+// ── 설정 ──
+function aordLoadSettings(){
+  const mgEl=document.getElementById('aord-max-glasses-display'); if(mgEl)mgEl.textContent=DB.orderMaxGlasses();
+  const pwInp=document.getElementById('aord-pw-input'); if(pwInp)pwInp.value=DB.orderPassword();
+  const pwCurr=document.getElementById('aord-pw-current');
+  const pw=DB.orderPassword();
+  if(pwCurr)pwCurr.textContent=pw?`현재 비밀번호: ${pw}`:'비밀번호 없음 (누구나 입장 가능)';
+}
+function aordAdjMaxGlasses(delta){
+  const next=Math.max(1,Math.min(20,DB.orderMaxGlasses()+delta));
+  DB.saveOrderMaxGlasses(next);
+  const el=document.getElementById('aord-max-glasses-display'); if(el)el.textContent=next;
+  toast(`최대 잔 수: ${next}잔`,'success');
+}
+function aordSavePassword(){
+  const val=(document.getElementById('aord-pw-input')?.value||'').trim();
+  DB.saveOrderPassword(val);
+  const curr=document.getElementById('aord-pw-current');
+  if(curr)curr.textContent=val?`현재 비밀번호: ${val}`:'비밀번호 없음 (누구나 입장 가능)';
+  toast(val?`비밀번호 "${val}" 저장됨`:'비밀번호 해제됨','success');
+}
+
 const PAGE_BACK={
   'preview-write':'main','preview-view':'main',
   'review-write':'main','review-view':'main','faq':'main',
@@ -3153,6 +3416,7 @@ const PAGE_BACK={
   'admin-rq':'admin-main',
   'admin-faq':'admin-main',
   'admin-popup':'admin-main',
+  'admin-order':'admin-main',
 };
 
 function goBack(){
