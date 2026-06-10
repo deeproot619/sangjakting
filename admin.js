@@ -3202,14 +3202,67 @@ function aordInitMenu(){
   aordActiveMenu=(saved&&saved.length)?saved:AORD_MENU_DEFAULTS.map(m=>({...m}));
 }
 
+let _aordPollTimer=null;
+
 async function initAdminOrder(){
   setupAdmin('admin-order','admin-order');
   aordInitMenu();
   aordSwitchTab('orders');
+  aordLoadSettings();
+  // Supabase에서 최신 데이터 먼저 가져온 후 렌더
+  await aordSyncAndRender();
+  aordStartRealtime();
+  aordStartPolling();
+}
+
+async function aordSyncAndRender(){
+  if(_sb){
+    try{
+      const{data}=await _sb.from('app_data').select('key,value').in('key',['orders','order_active_seats']);
+      if(data){
+        data.forEach(row=>localStorage.setItem('sjt_'+row.key, row.value));
+      }
+    }catch(e){}
+  }
   aordRenderOrders();
   aordRenderSeats();
-  aordLoadSettings();
-  aordStartRealtime();
+}
+
+function aordStartPolling(){
+  if(_aordPollTimer)clearInterval(_aordPollTimer);
+  _aordPollTimer=setInterval(async()=>{
+    if(currentPage!=='admin-order'){aordStopPolling();return;}
+    const before=localStorage.getItem('sjt_orders');
+    if(_sb){
+      try{
+        const{data}=await _sb.from('app_data').select('key,value').in('key',['orders','order_active_seats']);
+        if(data){
+          let changed=false;
+          data.forEach(row=>{
+            if(localStorage.getItem('sjt_'+row.key)!==row.value){changed=true;}
+            localStorage.setItem('sjt_'+row.key, row.value);
+          });
+          if(changed){
+            aordRenderOrders(); aordRenderSeats();
+            const after=localStorage.getItem('sjt_orders');
+            // 새 pending 주문이 생겼으면 알림
+            if(before!==after){
+              try{
+                const prevOrders=JSON.parse(before||'[]');
+                const newOrders=JSON.parse(after||'[]');
+                const newPending=newOrders.filter(o=>o.status==='pending'&&!prevOrders.find(p=>p.id===o.id));
+                if(newPending.length)aordShowNoti();
+              }catch(e){}
+            }
+          }
+        }
+      }catch(e){}
+    }
+  }, 5000);
+}
+
+function aordStopPolling(){
+  if(_aordPollTimer){clearInterval(_aordPollTimer);_aordPollTimer=null;}
 }
 
 function aordSwitchTab(tab){
