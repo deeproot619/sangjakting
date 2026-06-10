@@ -1731,8 +1731,8 @@ function ordRenderSeats(){
     const n=parseInt(id), on=active.includes(n);
     return `<button onclick="${on?`ordPickSeat(${n})`:'void(0)'}" title="${on?n+'번 자리 선택':'비활성화된 자리'}"
       style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);
-      width:30px;height:30px;border-radius:50%;padding:0;font-family:inherit;
-      border:${on?'2px solid rgba(201,169,110,.8)':'2px solid #3c3a50'};
+      width:29px;height:29px;border-radius:50%;padding:0;font-family:inherit;
+      border:${on?'2px solid rgba(201,169,110,.8)':'2px solid #0c0b16'};
       background:${on?'rgba(201,169,110,.08)':'#0c0b16'};
       cursor:${on?'pointer':'default'};"></button>`;
   }).join('');
