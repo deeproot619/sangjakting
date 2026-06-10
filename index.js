@@ -686,6 +686,7 @@ async function selectMainSchedule(id,text){
   document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">신청 현황 조회 중...</div>';
   await syncScheduleApplications(id);
   renderNumberGrid();
+  renderAppPreviewQuestions();
   updateSubmitBtn();
 }
 
@@ -754,7 +755,17 @@ function updateSubmitBtn(){
     const fileRequired=mainEvtFilter?DB.getEventFileRequired(mainEvtFilter):true;
     if(fileRequired)fileOk=!!mainState.file;
   }
-  const ok=p&&r&&fileOk;
+  let pvOk=true;
+  if(mainState.scheduleId){
+    const qs=getScheduleQuestions(mainState.scheduleId);
+    if(qs.length>0){
+      pvOk=qs.every(q=>{
+        const el=document.getElementById('app-pv-ans-'+q.id);
+        return el&&el.value.trim().length>0;
+      });
+    }
+  }
+  const ok=p&&r&&fileOk&&pvOk;
   document.getElementById('submitBtn').disabled=!ok;
   const overlay=document.getElementById('submitBtnOverlay');
   if(overlay)overlay.style.display=ok?'none':'block';
@@ -875,6 +886,18 @@ async function submitApplication(){
   apps.push(app);
   try{localStorage.setItem('sjt_applications',JSON.stringify(apps));}catch(e){}
 
+  // 자기소개서 저장
+  const pvQs=getScheduleQuestions(app.scheduleId);
+  if(pvQs.length>0){
+    const pvAnswers={};
+    pvQs.forEach(q=>{const el=document.getElementById('app-pv-ans-'+q.id);if(el)pvAnswers[q.id]=el.value.trim();});
+    const prevs=DB.previews();
+    const pvIdx=prevs.findIndex(p=>p.scheduleId===app.scheduleId&&p.gender===app.gender&&p.number===app.number);
+    const pvEntry={scheduleId:app.scheduleId,gender:app.gender,number:app.number,answers:pvAnswers,updatedAt:Date.now()};
+    if(pvIdx>=0)prevs[pvIdx]=pvEntry;else prevs.push(pvEntry);
+    DB.savePreviews(prevs);
+  }
+
   const synced=await syncApplicationToSB(app);
 
   btn.style.display='none';
@@ -908,8 +931,8 @@ async function submitApplication(){
 // ═══════════════════════════════════════════════════
 //  PAGE 3: PREVIEW WRITE
 // ═══════════════════════════════════════════════════
-const pwStates={p19:{scheduleId:null,verifiedApp:null},p4:{scheduleId:null,verifiedApp:null}};
-const pwEvtFilters={p19:null,p4:null};
+const pwStates={p4:{scheduleId:null,verifiedApp:null}};
+const pwEvtFilters={p4:null};
 
 function initPW(ctx){
   pwStates[ctx]={scheduleId:null,verifiedApp:null};
@@ -1088,29 +1111,25 @@ async function initApplication(){
   document.getElementById('submitMsg').style.display='none';
   document.getElementById('submitBtn').style.display='';
   document.getElementById('numSelectArea').innerHTML='<div class="empty-state" style="padding:16px;">일정과 성별을 먼저 선택해주세요.</div>';
+  renderAppPreviewQuestions();
   updateSubmitBtn();
   const gst=DB.genderSubText();
   const gstEl=document.getElementById('gender-sub-text');
   if(gstEl){gstEl.textContent=gst;gstEl.style.display=gst?'block':'none';}
-  switchAppTab('form');
 }
 
-function switchAppTab(tab){
-  const fc=document.getElementById('app-tab-form-content');
-  const pc=document.getElementById('app-tab-pv-content');
-  const bf=document.getElementById('app-tab-btn-form');
-  const bp=document.getElementById('app-tab-btn-pv');
-  const gold='2px solid var(--gold)',none='2px solid transparent';
-  if(tab==='form'){
-    fc.style.display='';pc.style.display='none';
-    bf.style.borderBottom=gold;bf.style.color='var(--gold)';
-    bp.style.borderBottom=none;bp.style.color='var(--txt2)';
-  }else{
-    fc.style.display='none';pc.style.display='';
-    bf.style.borderBottom=none;bf.style.color='var(--txt2)';
-    bp.style.borderBottom=gold;bp.style.color='var(--gold)';
-    initPW('p19');
-  }
+function renderAppPreviewQuestions(){
+  const section=document.getElementById('app-preview-section');
+  const container=document.getElementById('app-preview-questions');
+  if(!section||!container)return;
+  if(!mainState.scheduleId){section.style.display='none';return;}
+  const qs=getScheduleQuestions(mainState.scheduleId);
+  if(qs.length===0){section.style.display='none';return;}
+  container.innerHTML=qs.map(q=>`<div class="form-group">
+    <label class="form-label" style="font-size:15px;color:var(--gold);font-weight:600;">Q${q.order}. ${q.content}</label>
+    <textarea class="form-textarea" id="app-pv-ans-${q.id}" placeholder="내용을 입력하세요" oninput="updateSubmitBtn()"></textarea>
+  </div>`).join('');
+  section.style.display='';
 }
 
 // ═══════════════════════════════════════════════════

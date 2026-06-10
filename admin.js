@@ -474,6 +474,7 @@ function buildSidebar(pageNum,activePage){
     {label:'예약신청 안내문구 관리',page:'admin-res'},
     {label:'FAQ 관리',page:'admin-faq'},
     {label:'팝업 관리',page:'admin-popup'},
+    {label:'칵테일 주문 관리',page:'admin-order'},
   ];
   let html=`<div class="sidebar-logo">상호작용</div>`;
   html+=`<div class="sidebar-label">관리자</div>`;
@@ -550,6 +551,7 @@ function initMain(){
     {id:'pv-view',label:'자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
     {id:'rv-view',label:'상작팅 후기',icon:'💬',action:"go('review')",bg:''},
     {id:'faq',label:'Q&A',icon:'❓',action:"go('faq')",bg:''},
+    {id:'order',label:'칵테일 주문',icon:'🍹',action:"go('order')",bg:''},
   ];
   const savedDefs=DB.get('mainMenuDefs',null);
   const menuDefs=defaultDefs.map(d=>{
@@ -2934,6 +2936,7 @@ function renderMMGrid(){
     {id:'pv-view',label:'자기소개서 모음',icon:'👀',bg:''},
     {id:'rv-view',label:'상작팅 후기',icon:'💬',bg:''},
     {id:'faq',label:'Q&A',icon:'❓',bg:''},
+    {id:'order',label:'칵테일 주문',icon:'🍹',bg:''},
   ];
   const saved=DB.get('mainMenuDefs',null);
   const menuDefs=DEFAULT_DEFS.map(d=>{
@@ -3375,8 +3378,8 @@ function aordRenderSeats(){
     return `<button onclick="aordToggleSeat(${n})" title="${on?n+'번 비활성화':n+'번 활성화'}"
       style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);
       width:28px;height:28px;border-radius:50%;padding:0;font-family:inherit;cursor:pointer;
-      border:${on?'2px solid rgba(201,169,110,.8)':'2px solid rgba(255,255,255,.2)'};
-      background:${on?'rgba(201,169,110,.12)':'rgba(255,255,255,.04)'};"></button>`;
+      border:${on?'2px solid rgba(201,169,110,.8)':'2px solid #0c0b16'};
+      background:${on?'rgba(201,169,110,.12)':'#0c0b16'};"></button>`;
   }).join('');
 }
 function aordToggleSeat(n){

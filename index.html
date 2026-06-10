@@ -92,7 +92,7 @@
     <div class="page-title" id="pv-page-title">자기소개서 모음</div>
     <div style="display:flex;border-bottom:1px solid var(--bd);margin-bottom:20px;">
       <button id="pv-tab-btn-view" onclick="switchPVTab('view')" style="flex:1;padding:10px;background:none;border:none;border-bottom:2px solid var(--gold);color:var(--gold);font-size:14px;cursor:pointer;font-family:inherit;">자기소개서 보기</button>
-      <button id="pv-tab-btn-write" onclick="switchPVTab('write')" style="flex:1;padding:10px;background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);font-size:14px;cursor:pointer;font-family:inherit;">자기소개서 작성</button>
+      <button id="pv-tab-btn-write" onclick="switchPVTab('write')" style="flex:1;padding:10px;background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);font-size:14px;cursor:pointer;font-family:inherit;">자기소개서 수정</button>
     </div>
     <div id="pv-tab-view-content">
       <div id="pv-event-tabs-public" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
@@ -138,12 +138,12 @@
         <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="p4-pw-name" placeholder="이름을 입력하세요" lang="ko" inputmode="text"></div>
         <div class="form-group"><label class="form-label">생년월일 (8자리)</label><input class="form-input" id="p4-pw-birth" placeholder="예: 19990101" maxlength="8" inputmode="numeric"></div>
         <div style="display:flex;gap:8px;margin-top:4px;">
-          <button class="btn btn-primary btn-sm" onclick="verifyWriter('p4')">작성 시작 / 저장한 글 불러오기</button>
+          <button class="btn btn-primary btn-sm" onclick="verifyWriter('p4')">자기소개서 수정하기</button>
         </div>
         <div id="p4-pw-verify-msg" class="mt8 text-sm"></div>
       </div>
       <div class="card" id="p4-pw-form-area" style="display:none;">
-        <div class="card-hd">자기소개서 작성</div>
+        <div class="card-hd">자기소개서 수정</div>
         <div id="p4-pw-questions"></div>
         <button class="btn btn-primary btn-full mt16" onclick="savePreview('p4')">작성(수정) 완료</button>
       </div>
@@ -227,10 +227,6 @@
   </div>
   <div class="container">
     <div class="page-title">신청하기</div>
-    <div style="display:flex;border-bottom:1px solid var(--bd);margin-bottom:20px;">
-      <button id="app-tab-btn-form" onclick="switchAppTab('form')" style="flex:1;padding:10px;background:none;border:none;border-bottom:2px solid var(--gold);color:var(--gold);font-size:14px;cursor:pointer;font-family:inherit;">신청하기</button>
-      <button id="app-tab-btn-pv" onclick="switchAppTab('pv')" style="flex:1;padding:10px;background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);font-size:14px;cursor:pointer;font-family:inherit;">자기소개서 작성</button>
-    </div>
     <div id="app-tab-form-content">
       <div class="card" style="padding:14px 18px;">
         <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;">이벤트 선택</div>
@@ -289,39 +285,17 @@
         </div>
         <div id="m-custom-fields"></div>
       </div>
+      <div id="app-preview-section" style="display:none;">
+        <div class="card">
+          <div class="card-hd">자기소개서 작성</div>
+          <div id="app-preview-questions"></div>
+        </div>
+      </div>
       <div style="position:relative;margin-bottom:8px;">
         <button class="btn btn-primary btn-full" id="submitBtn" disabled onclick="submitApplication()">예약 신청하기</button>
         <div id="submitBtnOverlay" style="position:absolute;inset:0;cursor:not-allowed;" onclick="toast('신청 정보 입력, 체크박스 체크를 확인해 주세요','error')"></div>
       </div>
       <div id="submitMsg" style="display:none;text-align:center;padding:20px;font-size:15px;color:var(--ok);"></div>
-    </div>
-    <div id="app-tab-pv-content" style="display:none;">
-      <div id="p19-pw-guide-area"></div>
-      <div id="p19-pw-event-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
-      <div class="card">
-        <div class="card-hd">일정 선택</div>
-        <div class="dropdown-wrap">
-          <div class="dropdown-trigger" id="p19-pw-schedule-btn" onclick="toggleDrop('p19-pw-schedule')">
-            <span id="p19-pw-schedule-val">일정을 선택해주세요.</span>
-            <span class="dropdown-arrow">▼</span>
-          </div>
-          <div class="dropdown-menu" id="p19-pw-schedule-menu"></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-hd">작성자 확인</div>
-        <div class="form-group"><label class="form-label">이름</label><input class="form-input" id="p19-pw-name" placeholder="이름을 입력하세요" lang="ko" inputmode="text"></div>
-        <div class="form-group"><label class="form-label">생년월일 (8자리)</label><input class="form-input" id="p19-pw-birth" placeholder="예: 19990101" maxlength="8" inputmode="numeric"></div>
-        <div style="display:flex;gap:8px;margin-top:4px;">
-          <button class="btn btn-primary btn-sm" onclick="verifyWriter('p19')">작성 시작 / 저장한 글 불러오기</button>
-        </div>
-        <div id="p19-pw-verify-msg" class="mt8 text-sm"></div>
-      </div>
-      <div class="card" id="p19-pw-form-area" style="display:none;">
-        <div class="card-hd">자기소개서 작성</div>
-        <div id="p19-pw-questions"></div>
-        <button class="btn btn-primary btn-full mt16" onclick="savePreview('p19')">작성(수정) 완료</button>
-      </div>
     </div>
   </div>
 </div>
