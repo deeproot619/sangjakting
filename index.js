@@ -77,6 +77,8 @@ async function syncSettingsFromSB(){
         const remote=JSON.parse(row.value||'[]');
         const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
         localStorage.setItem('sjt_mainMenuDefs',JSON.stringify(merged));
+      }else if(row.key==='socialLinks'){
+        localStorage.setItem('sjt_socialLinks',row.value);
       }else if(row.key==='noticePopup'){
         const localRaw=localStorage.getItem('sjt_noticePopup');
         if(localRaw){
@@ -142,6 +144,8 @@ async function loadFromSB(){
           const remote=JSON.parse(row.value||'[]');
           const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
           localStorage.setItem('sjt_mainMenuDefs',JSON.stringify(merged));
+        } else if(row.key==='socialLinks'){
+          localStorage.setItem('sjt_socialLinks',row.value);
         } else if(row.key==='noticePopup'){
           const localRaw=localStorage.getItem('sjt_noticePopup');
           if(localRaw){
@@ -214,8 +218,7 @@ const DB={
   savePreviews:v=>DB.set('previews',v),
   reviews:()=>DB.get('reviews',[]),
   saveReviews:v=>DB.set('reviews',v),
-  instagram:()=>DB.get('instagram',''),
-  saveInstagram:v=>DB.set('instagram',v),
+  socialLinks:()=>DB.get('socialLinks',[]),
   genderSubText:()=>DB.get('genderSubText',''),
   resMethod:()=>DB.get('resMethod',{
     part1:'★ 꼭 확인해주세요★\n인스타그램 계정을 팔로우한 뒤,\n아래 내용을 DM으로 보내주세요.\n보내주지 않을 시 입장이 제한될 수 있습니다.\n입금자명 + 참여 날짜\nEx) 김상작, 6월6일(토) 18:00',
@@ -287,6 +290,8 @@ const DB={
   orderMenu:()=>DB.get('order_menu',null),
   saveOrderMenu:v=>DB.set('order_menu',v),
   orderMaxGlasses:()=>DB.get('order_max_glasses',2),
+  orderMaxGlassesPerNum:()=>DB.get('order_max_glasses_per_num',2),
+  orderLimitMode:()=>DB.get('order_limit_mode','seat'),
   orderPassword:()=>DB.get('order_password',''),
   orderActiveSeats:()=>DB.get('order_active_seats',null),
 };
@@ -642,15 +647,12 @@ function buildMainScheduleMenu(){
 async function initMain(){
   await syncSettingsFromSB();
   // Menu grid
-  const ig=DB.instagram();
   const defaultDefs=[
     {id:'apply',label:'신청하기',icon:'📋',action:"go('application')",bg:''},
-    {id:'matching',label:'매칭 링크',icon:'💑',action:"openExtLink('https://script.google.com/macros/s/AKfycbxSB1QsTuKsYITuNu5swx1Rzo2rZzApimyFVBWEofF4ZgtJuQ002TAK2mPONC-3xhyhmw/exec')",bg:''},
-    {id:'instagram',label:'인스타그램',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
+    {id:'order',label:'칵테일 주문',icon:'🍹',action:"go('order')",bg:''},
     {id:'pv-view',label:'자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
     {id:'rv-view',label:'상작팅 후기',icon:'💬',action:"go('review')",bg:''},
     {id:'faq',label:'Q&A',icon:'❓',action:"go('faq')",bg:''},
-    {id:'order',label:'칵테일 주문',icon:'🍹',action:"go('order')",bg:''},
   ];
   // DB에 저장된 라벨/배경 불러오기 (id 기준으로 매칭)
   const savedDefs=DB.get('mainMenuDefs',null);
@@ -669,12 +671,25 @@ async function initMain(){
       ${it.bg?'':'<div class="menu-icon">'+it.icon+'</div>'}
       <div style="${it.bg?'background:rgba(0,0,0,.45);padding:6px 10px;border-radius:6px;width:100%;text-align:center;':''}">${it.label}</div>
     </div>`).join('');
+  // 소셜 링크 바 렌더링
+  renderSocialLinksBar();
   showNoticePopup();
 
   // phone input
   document.getElementById('m-phone').oninput=formatPhone;
   // 공지 팝업
   showNoticePopup();
+}
+
+function renderSocialLinksBar(){
+  const area=document.getElementById('main-social-links');
+  if(!area)return;
+  const links=DB.socialLinks();
+  if(!links||links.length===0){area.style.display='none';return;}
+  area.style.display='flex';
+  area.innerHTML=links.map(lk=>`
+    <div class="social-link-btn" onclick="openExtLink('${lk.url||''}')">${lk.name}</div>
+  `).join('');
 }
 
 async function selectMainSchedule(id,text){
@@ -1671,6 +1686,9 @@ function ordGetActiveSeats(){
 function ordSeatGlassCount(seatNum){
   return DB.orderOrders().filter(o=>o.seatNumber===seatNum).reduce((s,o)=>s+o.items.length,0);
 }
+function ordNumGlassCount(gender,num){
+  return DB.orderOrders().filter(o=>o.gender===gender&&o.datingNumber===num).reduce((s,o)=>s+o.items.length,0);
+}
 function ordToast(msg,type='info'){
   const w=document.getElementById('ord-toast-w');
   if(!w)return;
@@ -1720,9 +1738,15 @@ function ordSelectGender(g){
   const grid=document.getElementById('ord-num-grid');
   if(!grid)return;
   grid.innerHTML='';
+  const isNumMode=DB.orderLimitMode()==='num';
+  const maxPerNum=DB.orderMaxGlassesPerNum();
   for(let i=1;i<=12;i++){
     const b=document.createElement('button');
-    b.className='num-btn'; b.textContent=i+'번'; b.onclick=(()=>{const n=i;return()=>ordPickNum(n);})();
+    const exhausted=isNumMode&&ordNumGlassCount(g,i)>=maxPerNum;
+    b.className='num-btn'+(exhausted?' taken':'');
+    b.textContent=i+'번';
+    if(exhausted){b.disabled=true;}
+    else{b.onclick=(()=>{const n=i;return()=>ordPickNum(n);})();}
     grid.appendChild(b);
   }
   const numArea=document.getElementById('ord-num-area'); if(numArea)numArea.style.display='';
@@ -1741,6 +1765,7 @@ function ordBackToStep1(){
   ordS.num=null;
   const s1=document.getElementById('ord-step1'); if(s1)s1.style.display='';
   const s2=document.getElementById('ord-step2'); if(s2)s2.style.display='none';
+  if(ordS.gender)ordSelectGender(ordS.gender);
 }
 
 function ordRenderSeats(){
@@ -1759,16 +1784,21 @@ function ordRenderSeats(){
 
 function ordPickSeat(n){
   ordS.seat=n; ordS.items=[];
-  const maxG=DB.orderMaxGlasses(), used=ordSeatGlassCount(n);
+  const isNumMode=DB.orderLimitMode()==='num';
+  const maxG=isNumMode?DB.orderMaxGlassesPerNum():DB.orderMaxGlasses();
+  const used=isNumMode?ordNumGlassCount(ordS.gender,ordS.num):ordSeatGlassCount(n);
   const seatEl=document.getElementById('ord-menu-seat-num'); if(seatEl)seatEl.textContent=n;
-  const capEl=document.getElementById('ord-menu-capacity-info'); if(capEl)capEl.textContent=`남은 잔 수: ${maxG-used} / ${maxG}`;
+  const capEl=document.getElementById('ord-menu-capacity-info');
+  if(capEl)capEl.textContent=isNumMode?`내 남은 잔: ${maxG-used} / ${maxG}`:`남은 잔 수: ${maxG-used} / ${maxG}`;
   const modal=document.getElementById('ord-menu-modal'); if(modal)modal.style.display='';
   ordRenderMenuItems();
 }
 
 function ordRenderMenuItems(){
   const list=document.getElementById('ord-menu-list'); if(!list)return;
-  const maxG=DB.orderMaxGlasses(), used=ordSeatGlassCount(ordS.seat);
+  const isNumMode=DB.orderLimitMode()==='num';
+  const maxG=isNumMode?DB.orderMaxGlassesPerNum():DB.orderMaxGlasses();
+  const used=isNumMode?ordNumGlassCount(ordS.gender,ordS.num):ordSeatGlassCount(ordS.seat);
   const remaining=maxG-used, canAdd=ordS.items.length<remaining;
   function itemHtml(m){
     const sel=ordS.items.includes(m.id), disabled=!sel&&!canAdd;
@@ -1807,7 +1837,9 @@ function ordToggleItem(id){
   const i=ordS.items.indexOf(id);
   if(i>=0){ordS.items.splice(i,1);}
   else{
-    const rem=DB.orderMaxGlasses()-ordSeatGlassCount(ordS.seat);
+    const isNumMode=DB.orderLimitMode()==='num';
+    const rem=(isNumMode?DB.orderMaxGlassesPerNum():DB.orderMaxGlasses())
+             -(isNumMode?ordNumGlassCount(ordS.gender,ordS.num):ordSeatGlassCount(ordS.seat));
     if(ordS.items.length>=rem){ordToast(`최대 ${rem}잔까지 선택 가능합니다.`,'error');return;}
     ordS.items.push(id);
   }
@@ -1825,8 +1857,13 @@ function ordCloseMenu(){
 
 function ordSubmitOrder(){
   if(!ordS.items.length){ordToast('메뉴를 선택해주세요.','error');return;}
-  const maxG=DB.orderMaxGlasses(), used=ordSeatGlassCount(ordS.seat), rem=maxG-used;
-  if(ordS.items.length>rem){ordToast(`이 좌석은 ${rem}잔만 더 주문 가능합니다.`,'error');return;}
+  const isNumMode=DB.orderLimitMode()==='num';
+  const maxG=isNumMode?DB.orderMaxGlassesPerNum():DB.orderMaxGlasses();
+  const used=isNumMode?ordNumGlassCount(ordS.gender,ordS.num):ordSeatGlassCount(ordS.seat);
+  const rem=maxG-used;
+  if(ordS.items.length>rem){
+    ordToast(isNumMode?`이 번호는 ${rem}잔만 더 주문 가능합니다.`:`이 좌석은 ${rem}잔만 더 주문 가능합니다.`,'error');return;
+  }
   const order={
     id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
     gender:ordS.gender, datingNumber:ordS.num, seatNumber:ordS.seat,
@@ -1836,8 +1873,8 @@ function ordSubmitOrder(){
   const modal=document.getElementById('ord-menu-modal'); if(modal)modal.style.display='none';
   ordShowPending(order);
   ordToast('주문이 접수되었습니다!','success');
-  // 잔 수 다 찼으면 좌석 비활성화
-  if(used+ordS.items.length>=maxG){
+  // 좌석 모드에서만 좌석 자동 비활성화
+  if(!isNumMode&&used+ordS.items.length>=maxG){
     const seats=ordGetActiveSeats().filter(s=>s!==ordS.seat);
     DB.set('order_active_seats',seats);
   }

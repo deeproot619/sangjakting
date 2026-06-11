@@ -175,8 +175,8 @@ const DB={
   savePreviews:v=>DB.set('previews',v),
   reviews:()=>DB.get('reviews',[]),
   saveReviews:v=>DB.set('reviews',v),
-  instagram:()=>DB.get('instagram',''),
-  saveInstagram:v=>DB.set('instagram',v),
+  socialLinks:()=>DB.get('socialLinks',[]),
+  saveSocialLinks:v=>DB.set('socialLinks',v),
   genderSubText:()=>DB.get('genderSubText',''),
   saveGenderSubText:v=>DB.set('genderSubText',v),
   resMethod:()=>DB.get('resMethod',{
@@ -223,6 +223,10 @@ const DB={
   saveOrderMenu:v=>DB.set('order_menu',v),
   orderMaxGlasses:()=>DB.get('order_max_glasses',2),
   saveOrderMaxGlasses:v=>DB.set('order_max_glasses',v),
+  orderMaxGlassesPerNum:()=>DB.get('order_max_glasses_per_num',2),
+  saveOrderMaxGlassesPerNum:v=>DB.set('order_max_glasses_per_num',v),
+  orderLimitMode:()=>DB.get('order_limit_mode','seat'),
+  saveOrderLimitMode:v=>DB.set('order_limit_mode',v),
   orderPassword:()=>DB.get('order_password',''),
   saveOrderPassword:v=>DB.set('order_password',v),
   orderActiveSeats:()=>DB.get('order_active_seats',null),
@@ -387,7 +391,6 @@ const PAGES={
   'admin-applicants':'page-admin-applicants',
   'admin-preview':'page-admin-preview',
   'admin-reviews':'page-admin-reviews',
-  'admin-instagram':'page-admin-instagram',
   'admin-res':'page-admin-res',
   'admin-main-manage':'page-admin-main-manage',
   'admin-pq':'page-admin-pq',
@@ -397,7 +400,7 @@ const PAGES={
   'admin-events':'page-admin-events',
   'admin-order':'page-admin-order',
 };
-const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq','admin-popup','admin-events','admin-order'];
+const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-res','admin-pq','admin-rq','admin-faq','admin-popup','admin-events','admin-order'];
 
 let currentPage='main';
 function go(page,params={},pushState=true){
@@ -426,7 +429,6 @@ function go(page,params={},pushState=true){
   else if(page==='admin-applicants')initAdminApplicants(params.scheduleId||currentSchedId);
   else if(page==='admin-preview')initAdminPreview();
   else if(page==='admin-reviews')initAdminReviews(1);
-  else if(page==='admin-instagram')initAdminInstagram();
   else if(page==='admin-res')initAdminRes();
   else if(page==='admin-main-manage')initAdminMainManage();
   else if(page==='admin-faq')initAdminFAQ();
@@ -470,7 +472,6 @@ function buildSidebar(pageNum,activePage){
     {label:'신청자 현황 관리',page:'admin-applicants'},
     {label:'Preview 관리',page:'admin-preview'},
     {label:'Review 관리',page:'admin-reviews'},
-    {label:'Instagram 링크 관리',page:'admin-instagram'},
     {label:'예약신청 안내문구 관리',page:'admin-res'},
     {label:'FAQ 관리',page:'admin-faq'},
     {label:'팝업 관리',page:'admin-popup'},
@@ -488,12 +489,10 @@ function buildSidebar(pageNum,activePage){
   if(el)el.innerHTML=html;
 }
 function buildTopNav(pageNum){
-  const ig=DB.instagram();
   const items=[
     {label:'메인 페이지',onclick:"go('main')"},
     {label:'Preview 보기',onclick:"go('preview-view')"},
     {label:'Review 보기',onclick:"go('review-view')"},
-    {label:'Instagram',onclick:`openExtLink('${ig}')`},
     {label:'Preview 작성',onclick:"go('preview-write')"},
     {label:'Review 작성',onclick:"go('review-write')"},
     {label:'예약 신청 방법',onclick:"go('main')"},
@@ -542,16 +541,12 @@ let mainState={scheduleId:null,gender:null,number:null,file:null,fileName:null};
 
 function initMain(){
   // Menu grid
-  const ig=DB.instagram();
-  const menuActions=["go('preview-view')",`openExtLink('${ig}')`,`openExtLink('${ig}')`,  "go('preview-view')", "go('preview-write')", "go('review-write')", "go('faq')"];
   const defaultDefs=[
     {id:'apply',label:'신청하기',icon:'📋',action:"go('application')",bg:''},
-    {id:'matching',label:'매칭 링크',icon:'💑',action:"openExtLink('https://script.google.com/macros/s/AKfycbxSB1QsTuKsYITuNu5swx1Rzo2rZzApimyFVBWEofF4ZgtJuQ002TAK2mPONC-3xhyhmw/exec')",bg:''},
-    {id:'instagram',label:'인스타그램',icon:'📸',action:`openExtLink('${ig}')`,bg:''},
+    {id:'order',label:'칵테일 주문',icon:'🍹',action:"go('order')",bg:''},
     {id:'pv-view',label:'자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
     {id:'rv-view',label:'상작팅 후기',icon:'💬',action:"go('review')",bg:''},
     {id:'faq',label:'Q&A',icon:'❓',action:"go('faq')",bg:''},
-    {id:'order',label:'칵테일 주문',icon:'🍹',action:"go('order')",bg:''},
   ];
   const savedDefs=DB.get('mainMenuDefs',null);
   const menuDefs=defaultDefs.map(d=>{
@@ -1160,7 +1155,6 @@ function initAdminMain(){
     {icon:'👥',label:'신청자 현황 관리',page:'admin-applicants'},
     {icon:'📋',label:'Preview 관리',page:'admin-preview'},
     {icon:'💬',label:'Review 관리',page:'admin-reviews'},
-    {icon:'📸',label:'Instagram 링크 관리',page:'admin-instagram'},
     {icon:'📝',label:'예약신청 안내문구 관리',page:'admin-res'},
     {icon:'🗂',label:'FAQ 관리',page:'admin-faq'},
     {icon:'📢',label:'팝업 관리',page:'admin-popup'},
@@ -2320,25 +2314,6 @@ function deleteReview(id){
 }
 
 // ═══════════════════════════════════════════════════
-//  PAGE 14: ADMIN INSTAGRAM
-// ═══════════════════════════════════════════════════
-function initAdminInstagram(){
-  setupAdmin('14','admin-instagram');
-  document.getElementById('ig-input').value=DB.instagram();
-  document.getElementById('ig-msg').style.display='none';
-}
-
-function saveInstagram(){
-  const url=document.getElementById('ig-input').value.trim();
-  DB.saveInstagram(url);
-  const msg=document.getElementById('ig-msg');
-  msg.textContent='등록 되었습니다.';
-  msg.className='text-sm mt8 text-ok';
-  msg.style.display='block';
-  toast('Instagram 링크가 등록되었습니다.','success');
-}
-
-// ═══════════════════════════════════════════════════
 //  PAGE 15: ADMIN RESERVATION METHOD
 // ═══════════════════════════════════════════════════
 let resEvtFilter='global';
@@ -2900,7 +2875,77 @@ function deleteFAQItem(id){
 // ═══════════════════════════════════════════════════
 function initAdminMainManage(){
   setupAdmin('mm','admin-main-manage');
+  renderSocialLinksSection();
   renderMMGrid();
+}
+
+// ── 소셜 링크 관리 ──
+function renderSocialLinksSection(){
+  const area=document.getElementById('mm-social-links-area');
+  if(!area)return;
+  const links=DB.socialLinks();
+  let html='';
+  if(links.length===0){
+    html='<div style="font-size:13px;color:var(--txt3);padding:8px 0;">등록된 링크가 없습니다.</div>';
+  } else {
+    links.forEach((lk,i)=>{
+      html+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);">
+        <div style="flex:0 0 90px;font-size:13px;font-weight:600;color:var(--txt);">${lk.name}</div>
+        <div style="flex:1;font-size:12px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lk.url||'(URL 없음)'}</div>
+        <button class="btn btn-secondary btn-sm" onclick="editSocialLink(${i})">수정</button>
+        <button class="btn btn-danger btn-sm" onclick="removeSocialLink(${i})">삭제</button>
+      </div>
+      <div id="sl-edit-area-${i}" style="display:none;padding:8px 0;gap:8px;flex-direction:column;">
+        <input class="form-input" id="sl-edit-name-${i}" value="${lk.name}" placeholder="플랫폼 이름 (예: Instagram)" lang="ko" inputmode="text" style="margin-bottom:6px;">
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="sl-edit-url-${i}" value="${lk.url||''}" placeholder="https://..." inputmode="url" style="flex:1;">
+          <button class="btn btn-primary btn-sm" onclick="saveSocialLink(${i})">저장</button>
+        </div>
+      </div>`;
+    });
+  }
+  area.innerHTML=html;
+}
+
+function editSocialLink(i){
+  const area=document.getElementById('sl-edit-area-'+i);
+  if(!area)return;
+  const isOpen=area.style.display==='flex';
+  document.querySelectorAll('[id^="sl-edit-area-"]').forEach(el=>el.style.display='none');
+  if(!isOpen)area.style.display='flex';
+}
+
+function saveSocialLink(i){
+  const links=DB.socialLinks();
+  const name=(document.getElementById('sl-edit-name-'+i)?.value||'').trim();
+  const url=(document.getElementById('sl-edit-url-'+i)?.value||'').trim();
+  if(!name){toast('플랫폼 이름을 입력해주세요.','error');return;}
+  links[i]={...links[i],name,url};
+  DB.saveSocialLinks(links);
+  toast('저장되었습니다.','success');
+  renderSocialLinksSection();
+}
+
+function removeSocialLink(i){
+  if(!confirm('이 링크를 삭제하시겠습니까?'))return;
+  const links=DB.socialLinks();
+  links.splice(i,1);
+  DB.saveSocialLinks(links);
+  toast('삭제되었습니다.','success');
+  renderSocialLinksSection();
+}
+
+function addSocialLink(){
+  const name=(document.getElementById('sl-new-name')?.value||'').trim();
+  const url=(document.getElementById('sl-new-url')?.value||'').trim();
+  if(!name){toast('플랫폼 이름을 입력해주세요.','error');return;}
+  const links=DB.socialLinks();
+  links.push({id:'sl_'+Date.now(),name,url});
+  DB.saveSocialLinks(links);
+  document.getElementById('sl-new-name').value='';
+  document.getElementById('sl-new-url').value='';
+  toast('추가되었습니다.','success');
+  renderSocialLinksSection();
 }
 
 function initGenderTextCard(){
@@ -2931,12 +2976,10 @@ function toggleGenderTextEdit(){
 function renderMMGrid(){
   const DEFAULT_DEFS=[
     {id:'apply',label:'신청하기',icon:'📋',bg:''},
-    {id:'matching',label:'매칭 링크',icon:'💑',bg:''},
-    {id:'instagram',label:'인스타그램',icon:'📸',bg:''},
+    {id:'order',label:'칵테일 주문',icon:'🍹',bg:''},
     {id:'pv-view',label:'자기소개서 모음',icon:'👀',bg:''},
     {id:'rv-view',label:'상작팅 후기',icon:'💬',bg:''},
     {id:'faq',label:'Q&A',icon:'❓',bg:''},
-    {id:'order',label:'칵테일 주문',icon:'🍹',bg:''},
   ];
   const saved=DB.get('mainMenuDefs',null);
   const menuDefs=DEFAULT_DEFS.map(d=>{
@@ -3436,17 +3479,45 @@ function aordDelItem(i){
 
 // ── 설정 ──
 function aordLoadSettings(){
+  const mode=DB.orderLimitMode();
+  const numRadio=document.getElementById('aord-mode-num');
+  const seatRadio=document.getElementById('aord-mode-seat');
+  if(numRadio)numRadio.checked=(mode==='num');
+  if(seatRadio)seatRadio.checked=(mode==='seat');
+  aordApplyLimitModeUI(mode);
   const mgEl=document.getElementById('aord-max-glasses-display'); if(mgEl)mgEl.textContent=DB.orderMaxGlasses();
+  const mgNumEl=document.getElementById('aord-max-glasses-per-num-display'); if(mgNumEl)mgNumEl.textContent=DB.orderMaxGlassesPerNum();
   const pwInp=document.getElementById('aord-pw-input'); if(pwInp)pwInp.value=DB.orderPassword();
   const pwCurr=document.getElementById('aord-pw-current');
   const pw=DB.orderPassword();
   if(pwCurr)pwCurr.textContent=pw?`현재 비밀번호: ${pw}`:'비밀번호 없음 (누구나 입장 가능)';
 }
+function aordToggleLimitMode(mode){
+  DB.saveOrderLimitMode(mode);
+  aordApplyLimitModeUI(mode);
+  toast(mode==='num'?'번호당 잔 수 제한으로 변경됨':'좌석당 잔 수 제한으로 변경됨','success');
+}
+function aordApplyLimitModeUI(mode){
+  const numSetting=document.getElementById('aord-num-setting');
+  const seatBtns=document.querySelectorAll('#aord-pane-settings [onclick^="aordAdjMaxGlasses("]');
+  const seatDisplay=document.getElementById('aord-max-glasses-display');
+  if(numSetting)numSetting.style.opacity=(mode==='num')?'1':'0.4';
+  if(seatDisplay)seatDisplay.style.opacity=(mode==='seat')?'1':'0.4';
+  seatBtns.forEach(b=>b.disabled=(mode==='num'));
+  const numBtns=document.querySelectorAll('#aord-pane-settings [onclick^="aordAdjMaxGlassesPerNum("]');
+  numBtns.forEach(b=>b.disabled=(mode==='seat'));
+}
 function aordAdjMaxGlasses(delta){
   const next=Math.max(1,Math.min(20,DB.orderMaxGlasses()+delta));
   DB.saveOrderMaxGlasses(next);
   const el=document.getElementById('aord-max-glasses-display'); if(el)el.textContent=next;
-  toast(`최대 잔 수: ${next}잔`,'success');
+  toast(`좌석당 최대 잔 수: ${next}잔`,'success');
+}
+function aordAdjMaxGlassesPerNum(delta){
+  const next=Math.max(1,Math.min(20,DB.orderMaxGlassesPerNum()+delta));
+  DB.saveOrderMaxGlassesPerNum(next);
+  const el=document.getElementById('aord-max-glasses-per-num-display'); if(el)el.textContent=next;
+  toast(`번호당 최대 잔 수: ${next}잔`,'success');
 }
 function aordSavePassword(){
   const val=(document.getElementById('aord-pw-input')?.value||'').trim();
@@ -3466,7 +3537,6 @@ const PAGE_BACK={
   'admin-applicants':'admin-main',
   'admin-preview':'admin-main',
   'admin-reviews':'admin-main',
-  'admin-instagram':'admin-main',
   'admin-res':'admin-main',
   'admin-pq':'admin-main',
   'admin-rq':'admin-main',
@@ -3496,7 +3566,7 @@ function handleHash(){
     '':'main','preview-write':'preview-write','preview-view':'preview-view',
     'review-write':'review-write','review-view':'review-view','faq':'faq',
     'admin':'admin-main','admin/schedules':'admin-schedules','admin/preview':'admin-preview',
-    'admin/reviews':'admin-reviews','admin/instagram':'admin-instagram',
+    'admin/reviews':'admin-reviews',
     'admin/res':'admin-res','admin/pq':'admin-pq','admin/rq':'admin-rq','admin/faq':'admin-faq',
   };
   const page=map[hash]||'main';

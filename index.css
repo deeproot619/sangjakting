@@ -89,10 +89,13 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .gender-btn.selected{border-color:var(--gold);background:var(--gold3);color:var(--gold);}
 
 /* ── MENU GRID ── */
-.menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px;}
+.menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
 .menu-item{aspect-ratio:1;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .22s;color:var(--txt2);font-size:13px;font-weight:500;text-align:center;padding:14px 8px;}
 .menu-item:hover{background:var(--bg4);border-color:var(--gold);color:var(--gold);transform:translateY(-3px);}
 .menu-icon{font-size:26px;line-height:1;}
+/* ── SOCIAL LINKS BAR ── */
+.social-link-btn{width:100%;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);display:flex;align-items:center;justify-content:center;padding:14px 20px;cursor:pointer;transition:all .22s;color:var(--txt2);font-size:14px;font-weight:600;letter-spacing:.04em;}
+.social-link-btn:hover{background:var(--bg4);border-color:var(--gold);color:var(--gold);}
 
 /* ── SCHEDULE DROPDOWN ── */
 .dropdown-wrap{position:relative;}
