@@ -94,7 +94,7 @@ button{cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .menu-item:hover{background:var(--bg4);border-color:var(--gold);color:var(--gold);transform:translateY(-3px);}
 .menu-icon{font-size:26px;line-height:1;}
 /* ── SOCIAL LINKS BAR ── */
-.social-link-btn{width:100%;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;transition:all .22s;color:var(--txt2);font-size:14px;font-weight:600;letter-spacing:.04em;box-sizing:border-box;}
+.social-link-btn{width:100%;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;padding:7px 10px;cursor:pointer;transition:all .22s;color:var(--txt2);font-size:14px;font-weight:600;letter-spacing:.04em;box-sizing:border-box;}
 .social-link-btn:hover{background:var(--bg4);color:var(--txt);}
 
 /* ── SCHEDULE DROPDOWN ── */

@@ -702,9 +702,8 @@ function renderSocialLinksBar(){
   area.style.display='flex';
   area.innerHTML=links.map(lk=>{
     const color=getSocialBrandColor(lk.name);
-    return `<div class="social-link-btn" onclick="openExtLink('${lk.url||''}')" style="border-left:4px solid ${color};">
+    return `<div class="social-link-btn" onclick="openExtLink('${lk.url||''}')" style="border-left:4px solid ${color};border-right:4px solid ${color};">
       <span style="color:${color};flex:1;text-align:center;">${lk.name}</span>
-      <span style="color:${color};font-size:16px;line-height:1;">↗</span>
     </div>`;
   }).join('');
 }
