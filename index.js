@@ -682,15 +682,31 @@ async function initMain(){
   showNoticePopup();
 }
 
+function getSocialBrandColor(name){
+  const n=name.toLowerCase();
+  if(n.includes('instagram')) return '#E1306C';
+  if(n.includes('naver')||n.includes('네이버')) return '#03C75A';
+  if(n.includes('kakao')||n.includes('카카오')) return '#FEE500';
+  if(n.includes('youtube')||n.includes('유튜브')) return '#FF0000';
+  if(n.includes('facebook')||n.includes('페이스북')) return '#1877F2';
+  if(n.includes('twitter')||n.includes('트위터')||n.includes(' x ')) return '#1DA1F2';
+  if(n.includes('tiktok')||n.includes('틱톡')) return '#69C9D0';
+  if(n.includes('threads')||n.includes('스레드')) return '#AAAAAA';
+  return 'var(--gold)';
+}
 function renderSocialLinksBar(){
   const area=document.getElementById('main-social-links');
   if(!area)return;
   const links=DB.socialLinks();
   if(!links||links.length===0){area.style.display='none';return;}
   area.style.display='flex';
-  area.innerHTML=links.map(lk=>`
-    <div class="social-link-btn" onclick="openExtLink('${lk.url||''}')">${lk.name}</div>
-  `).join('');
+  area.innerHTML=links.map(lk=>{
+    const color=getSocialBrandColor(lk.name);
+    return `<div class="social-link-btn" onclick="openExtLink('${lk.url||''}')" style="border-left:4px solid ${color};">
+      <span style="color:${color};flex:1;text-align:center;">${lk.name}</span>
+      <span style="color:${color};font-size:16px;line-height:1;">↗</span>
+    </div>`;
+  }).join('');
 }
 
 async function selectMainSchedule(id,text){
