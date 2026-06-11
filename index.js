@@ -650,6 +650,7 @@ async function initMain(){
   const defaultDefs=[
     {id:'apply',label:'신청하기',icon:'📋',action:"go('application')",bg:''},
     {id:'order',label:'칵테일 주문',icon:'🍹',action:"go('order')",bg:''},
+    {id:'matching',label:'매칭 결과',icon:'💑',action:"openExtLink('https://script.google.com/macros/s/AKfycbxSB1QsTuKsYITuNu5swx1Rzo2rZzApimyFVBWEofF4ZgtJuQ002TAK2mPONC-3xhyhmw/exec')",bg:''},
     {id:'pv-view',label:'자기소개서 모음',icon:'👀',action:"go('preview-view')",bg:''},
     {id:'rv-view',label:'상작팅 후기',icon:'💬',action:"go('review')",bg:''},
     {id:'faq',label:'Q&A',icon:'❓',action:"go('faq')",bg:''},
