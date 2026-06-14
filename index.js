@@ -107,7 +107,15 @@ async function syncApplicationToSB(app){
   const syncApp={...app};
   for(let attempt=0;attempt<3;attempt++){
     try{
+      // 개별 레코드 저장
       await _sb.from('app_data').upsert({key:'app_'+app.id,value:JSON.stringify(syncApp)});
+      // applications 목록: 로컬 덮어쓰기 방지 — Supabase 기준으로 추가만
+      const{data:listData}=await _sb.from('app_data').select('value').eq('key','applications').single();
+      const remoteList=JSON.parse(listData?.value||'[]');
+      if(!remoteList.find(a=>a.id===app.id)){
+        remoteList.push({...syncApp,fileData:''});
+        await _sb.from('app_data').upsert({key:'applications',value:JSON.stringify(remoteList)});
+      }
       return true;
     }catch(e){
       console.warn('Supabase application sync attempt '+(attempt+1)+' failed:',e.message);
@@ -423,7 +431,6 @@ const PAGES={
   'admin-applicants':'page-admin-applicants',
   'admin-preview':'page-admin-preview',
   'admin-reviews':'page-admin-reviews',
-  'admin-instagram':'page-admin-instagram',
   'admin-res':'page-admin-res',
   'admin-main-manage':'page-admin-main-manage',
   'admin-pq':'page-admin-pq',
@@ -431,7 +438,7 @@ const PAGES={
   'admin-faq':'page-admin-faq',
   'order':'page-order',
 };
-const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-instagram','admin-res','admin-pq','admin-rq','admin-faq']; // redirect to admin.html
+const ADMIN_PAGES=['admin-main','admin-main-manage','admin-schedules','admin-applicants','admin-preview','admin-reviews','admin-res','admin-pq','admin-rq','admin-faq']; // redirect to admin.html
 
 let currentPage='main';
 
