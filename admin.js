@@ -1166,6 +1166,7 @@ function initAdminMain(){
       <div class="admin-card-icon">${it.icon}</div>
       <div class="admin-card-label">${it.label}</div>
     </div>`).join('');
+  renderPushArea();
 }
 
 // ═══════════════════════════════════════════════════
@@ -3599,6 +3600,66 @@ function startAdmin(){
     go('admin-login',{},false);
   }
 }
+// ═══════════════════════════════════════════════════
+//  PWA 푸시 알림
+// ═══════════════════════════════════════════════════
+const VAPID_PUBLIC_KEY = 'BLjF0oDIomnkZKGqWSN_1AqffP1_ZUuSCt8rYSimCkQezvq8he7J4VoB7UZ-eycoG65t0Eo63xVjB_6RE88VT2Q';
+
+function _vapidToUint8(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+async function subscribePush(){
+  const btn=document.getElementById('push-setup-btn');
+  if(btn)btn.disabled=true;
+  try{
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted'){
+      showToast('알림 권한이 거부됐습니다. 브라우저 설정에서 허용해주세요.');
+      if(btn)btn.disabled=false;
+      return;
+    }
+    const reg=await navigator.serviceWorker.register('/sangjakting/sw.js');
+    const sub=await reg.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:_vapidToUint8(VAPID_PUBLIC_KEY)
+    });
+    await _sb.from('push_subscriptions').upsert({
+      endpoint:sub.endpoint,
+      subscription:JSON.stringify(sub)
+    });
+    showToast('백그라운드 알림 설정 완료!');
+    renderPushArea();
+  }catch(e){
+    console.error('Push subscribe error:',e);
+    showToast('알림 설정 중 오류가 발생했습니다: '+e.message);
+    if(btn)btn.disabled=false;
+  }
+}
+
+async function renderPushArea(){
+  const area=document.getElementById('push-setup-area');
+  if(!area)return;
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    area.innerHTML='<p style="color:#999;font-size:13px">이 브라우저는 푸시 알림을 지원하지 않습니다.</p>';
+    return;
+  }
+  try{
+    const reg=await navigator.serviceWorker.getRegistration('/sangjakting/sw.js');
+    const sub=reg?await reg.pushManager.getSubscription():null;
+    if(sub){
+      area.innerHTML='<p style="color:#4caf50;font-size:13px">✅ 신청 알림이 설정되어 있습니다.</p>';
+    }else{
+      area.innerHTML='<button class="btn btn-primary" id="push-setup-btn" onclick="subscribePush()">📱 신청 알림 받기</button>';
+    }
+  }catch(e){
+    area.innerHTML='<button class="btn btn-primary" id="push-setup-btn" onclick="subscribePush()">📱 신청 알림 받기</button>';
+  }
+}
+
 initSB();
 if(_sb){
   loadFromSB().then(()=>startAdmin());
