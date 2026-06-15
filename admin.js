@@ -3036,6 +3036,7 @@ function handleMMBg(id, input){
 //  ADMIN APPLICANTS (standalone with schedule selector + excel)
 // ═══════════════════════════════════════════════════
 let appFilterEvt='all';
+let _appPollTimer=null;
 
 async function refreshApplicantsFromSB(){
   const btn=document.getElementById('app-refresh-btn');
@@ -3048,8 +3049,33 @@ async function refreshApplicantsFromSB(){
   toast('최신 데이터를 불러왔습니다.','success');
 }
 
+function appStartPolling(){
+  if(_appPollTimer)clearInterval(_appPollTimer);
+  _appPollTimer=setInterval(async()=>{
+    if(currentPage!=='admin-applicants'){appStopPolling();return;}
+    if(!_sb)return;
+    try{
+      const{data}=await _sb.from('app_data').select('key,value').like('key','app_%');
+      if(!data)return;
+      const apps=[];
+      data.forEach(row=>{try{apps.push({...JSON.parse(row.value),fileData:''});}catch(e){} });
+      const current=JSON.parse(localStorage.getItem('sjt_applications')||'[]');
+      const changed=apps.length!==current.length||apps.some(a=>!current.find(c=>c.id===a.id));
+      if(changed){
+        localStorage.setItem('sjt_applications',JSON.stringify(apps));
+        renderApplicants();
+      }
+    }catch(e){}
+  },15000);
+}
+
+function appStopPolling(){
+  if(_appPollTimer){clearInterval(_appPollTimer);_appPollTimer=null;}
+}
+
 async function initAdminApplicants(scheduleId){
   setupAdmin('11','admin-applicants');
+  appStartPolling();
   renderAppEventTabs();
   buildAppScheduleMenu();
   if(scheduleId){
