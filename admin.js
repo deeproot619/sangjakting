@@ -3096,7 +3096,7 @@ async function resetScheduleData(){
         toast(`${targets.length}건의 데이터가 삭제되었습니다.`,'success');
       }catch(e){
         console.warn('resetScheduleData error:',e.message);
-        toast('초기화 중 오류가 발생했습니다.','error');
+        toast('초기화 오류: '+(e.message||JSON.stringify(e)),'error');
       }
     }
   );
