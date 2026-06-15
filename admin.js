@@ -1932,6 +1932,8 @@ function saveManualEntry(){
   closeManualEntry();
   renderApplicants();
   toast('수기 입력이 완료되었습니다.','success');
+  syncToSB('applications',apps);
+  if(_sb)_sb.from('app_data').upsert({key:'app_'+app.id,value:JSON.stringify(app)}).catch(e=>console.warn('Manual entry sync failed:',e.message));
 }
 
 function renderApplicants(){
@@ -3101,7 +3103,7 @@ async function refreshApplicantsFromSB(){
   toast('최신 데이터를 불러왔습니다.','success');
 }
 
-function initAdminApplicants(scheduleId){
+async function initAdminApplicants(scheduleId){
   setupAdmin('11','admin-applicants');
   renderAppEventTabs();
   buildAppScheduleMenu();
@@ -3111,7 +3113,11 @@ function initAdminApplicants(scheduleId){
     const valEl=document.getElementById('app-schedule-val');
     if(valEl&&sched)valEl.textContent=sched.displayText;
     const btn=document.getElementById('manual-entry-btn');
-    if(btn)btn.style.display='';
+    if(btn){btn.style.display='';btn.disabled=true;}
+    const loadEl=document.getElementById('applicants-content');
+    if(loadEl)loadEl.innerHTML='<div class="empty-state" style="padding:16px;">불러오는 중...</div>';
+    await syncScheduleApplications(scheduleId);
+    if(btn)btn.disabled=false;
     renderApplicants();
   } else {
     document.getElementById('applicants-content').innerHTML='';
@@ -3154,12 +3160,18 @@ function buildAppScheduleMenu(){
   }
 }
 
-function selectAppSchedule(id, text){
+async function selectAppSchedule(id, text){
   currentSchedId=id;
   const valEl=document.getElementById('app-schedule-val');
   if(valEl)valEl.textContent=text;
   document.getElementById('app-schedule-btn').classList.remove('open');
   document.getElementById('app-schedule-menu').classList.remove('open');
+  const meBtn=document.getElementById('manual-entry-btn');
+  if(meBtn)meBtn.disabled=true;
+  const el=document.getElementById('applicants-content');
+  if(el)el.innerHTML='<div class="empty-state" style="padding:16px;">불러오는 중...</div>';
+  await syncScheduleApplications(id);
+  if(meBtn)meBtn.disabled=false;
   renderApplicants();
 }
 
@@ -3612,6 +3624,21 @@ function _vapidToUint8(base64String){
   return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
 }
 
+function _pushAreaOn(){
+  const area=document.getElementById('push-setup-area');
+  if(!area)return;
+  area.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    +'<p style="color:#4caf50;font-size:13px;margin:0;">✅ 신청 알림 켜짐</p>'
+    +'<button class="btn" id="push-unsub-btn" onclick="unsubscribePush()" style="font-size:12px;padding:5px 12px;background:#555;color:#fff;border:none;border-radius:6px;cursor:pointer;">🔕 알림 끄기</button>'
+    +'</div>';
+}
+
+function _pushAreaOff(){
+  const area=document.getElementById('push-setup-area');
+  if(!area)return;
+  area.innerHTML='<button class="btn btn-primary" id="push-setup-btn" onclick="subscribePush()">📱 신청 알림 받기</button>';
+}
+
 async function subscribePush(){
   const btn=document.getElementById('push-setup-btn');
   if(btn)btn.disabled=true;
@@ -3641,7 +3668,7 @@ async function subscribePush(){
       },{onConflict:'endpoint'});
     }
     showToast('신청 알림이 설정되었습니다.');
-    renderPushArea();
+    _pushAreaOn();
   }catch(e){
     console.error('Push subscribe error:',e);
     showToast('알림 설정 중 오류가 발생했습니다: '+e.message);
@@ -3660,7 +3687,7 @@ async function unsubscribePush(){
       if(_sb)await _sb.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);
     }
     showToast('알림이 해제되었습니다.');
-    renderPushArea();
+    _pushAreaOff();
   }catch(e){
     console.error('Push unsubscribe error:',e);
     showToast('알림 해제 중 오류가 발생했습니다: '+e.message);
@@ -3678,16 +3705,9 @@ async function renderPushArea(){
   try{
     const reg=await navigator.serviceWorker.getRegistration('/sangjakting/sw.js');
     const sub=reg?await reg.pushManager.getSubscription():null;
-    if(sub){
-      area.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
-        +'<p style="color:#4caf50;font-size:13px;margin:0;">✅ 신청 알림 켜짐</p>'
-        +'<button class="btn" id="push-unsub-btn" onclick="unsubscribePush()" style="font-size:12px;padding:5px 12px;background:#555;color:#fff;border:none;border-radius:6px;cursor:pointer;">🔕 알림 끄기</button>'
-        +'</div>';
-    }else{
-      area.innerHTML='<button class="btn btn-primary" id="push-setup-btn" onclick="subscribePush()">📱 신청 알림 받기</button>';
-    }
+    if(sub)_pushAreaOn(); else _pushAreaOff();
   }catch(e){
-    area.innerHTML='<button class="btn btn-primary" id="push-setup-btn" onclick="subscribePush()">📱 신청 알림 받기</button>';
+    _pushAreaOff();
   }
 }
 
