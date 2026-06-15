@@ -94,6 +94,31 @@ async function syncScheduleApplications(scheduleId){
   }
 }
 
+async function syncSettingsFromSB(){
+  if(!_sb)return;
+  try{
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
+    const{data,error}=await Promise.race([
+      _sb.from('app_data').select('key,value').not('key','like','app_%').neq('key','applications'),
+      timeout
+    ]);
+    if(error)throw error;
+    if(!data)return;
+    data.forEach(row=>{
+      if(row.key==='mainMenuDefs'){
+        const local=DB.get('mainMenuDefs',null);
+        const remote=JSON.parse(row.value||'[]');
+        const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
+        localStorage.setItem('sjt_mainMenuDefs',JSON.stringify(merged));
+      }else{
+        localStorage.setItem('sjt_'+row.key,row.value);
+      }
+    });
+  }catch(e){
+    console.warn('Settings sync failed:',e.message);
+  }
+}
+
 function showSBLoading(show){
   let el=document.getElementById('sb-loading');
   if(!el){
@@ -3107,25 +3132,27 @@ async function resetScheduleData(){
 async function initAdminApplicants(scheduleId){
   setupAdmin('11','admin-applicants');
   appStartPolling();
-  await syncSettingsFromSB();
-  renderAppEventTabs();
-  buildAppScheduleMenu();
   if(scheduleId){
-    currentSchedId=scheduleId;
-    const sched=DB.schedules().find(s=>s.id===scheduleId);
-    const valEl=document.getElementById('app-schedule-val');
-    if(valEl&&sched)valEl.textContent=sched.displayText;
     const btn=document.getElementById('manual-entry-btn');
     const resetBtn=document.getElementById('app-reset-btn');
     if(btn){btn.style.display='';btn.disabled=true;}
     if(resetBtn)resetBtn.disabled=true;
     const loadEl=document.getElementById('applicants-content');
     if(loadEl)loadEl.innerHTML='<div class="empty-state" style="padding:16px;">불러오는 중...</div>';
-    await syncScheduleApplications(scheduleId);
+    await Promise.all([syncSettingsFromSB(),syncScheduleApplications(scheduleId)]);
+    renderAppEventTabs();
+    buildAppScheduleMenu();
+    currentSchedId=scheduleId;
+    const sched=DB.schedules().find(s=>s.id===scheduleId);
+    const valEl=document.getElementById('app-schedule-val');
+    if(valEl&&sched)valEl.textContent=sched.displayText;
     if(btn)btn.disabled=false;
     if(resetBtn)resetBtn.disabled=false;
     renderApplicants();
   } else {
+    await syncSettingsFromSB();
+    renderAppEventTabs();
+    buildAppScheduleMenu();
     document.getElementById('applicants-content').innerHTML='';
     const valEl=document.getElementById('app-schedule-val');
     if(valEl)valEl.textContent='일정을 선택해주세요.';
