@@ -26,7 +26,7 @@ async function loadFromSB(){
   if(!_sb)return;
   try{
     showSBLoading(true);
-    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000));
     const query=_sb.from('app_data').select('*');
     const{data,error}=await Promise.race([query,timeout]);
     if(error)throw error;
@@ -3618,24 +3618,52 @@ async function subscribePush(){
   try{
     const permission=await Notification.requestPermission();
     if(permission!=='granted'){
-      showToast('알림 권한이 거부됐습니다. 브라우저 설정에서 허용해주세요.');
-      if(btn)btn.disabled=false;
+      const area=document.getElementById('push-setup-area');
+      if(area){
+        const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+        const guide=isIOS
+          ?'기기 설정 앱 → Safari → 알림 → 허용'
+          :'브라우저 주소창 자물쇠 아이콘 → 알림 → 허용';
+        area.innerHTML='<p style="color:#e57373;font-size:13px;margin:0;">🔕 알림 권한이 거부됐습니다.<br>'+guide+' 후 페이지를 새로고침해주세요.</p>';
+      }
       return;
     }
-    const reg=await navigator.serviceWorker.register('/sangjakting/sw.js');
+    await navigator.serviceWorker.register('/sangjakting/sw.js');
+    const reg=await navigator.serviceWorker.ready;
     const sub=await reg.pushManager.subscribe({
       userVisibleOnly:true,
       applicationServerKey:_vapidToUint8(VAPID_PUBLIC_KEY)
     });
-    await _sb.from('push_subscriptions').upsert({
-      endpoint:sub.endpoint,
-      subscription:JSON.stringify(sub)
-    });
-    showToast('백그라운드 알림 설정 완료!');
+    if(_sb){
+      await _sb.from('push_subscriptions').upsert({
+        endpoint:sub.endpoint,
+        subscription:JSON.stringify(sub)
+      },{onConflict:'endpoint'});
+    }
+    showToast('신청 알림이 설정되었습니다.');
     renderPushArea();
   }catch(e){
     console.error('Push subscribe error:',e);
     showToast('알림 설정 중 오류가 발생했습니다: '+e.message);
+    if(btn)btn.disabled=false;
+  }
+}
+
+async function unsubscribePush(){
+  const btn=document.getElementById('push-unsub-btn');
+  if(btn)btn.disabled=true;
+  try{
+    const reg=await navigator.serviceWorker.getRegistration('/sangjakting/sw.js');
+    const sub=reg?await reg.pushManager.getSubscription():null;
+    if(sub){
+      await sub.unsubscribe();
+      if(_sb)await _sb.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);
+    }
+    showToast('알림이 해제되었습니다.');
+    renderPushArea();
+  }catch(e){
+    console.error('Push unsubscribe error:',e);
+    showToast('알림 해제 중 오류가 발생했습니다: '+e.message);
     if(btn)btn.disabled=false;
   }
 }
@@ -3651,7 +3679,10 @@ async function renderPushArea(){
     const reg=await navigator.serviceWorker.getRegistration('/sangjakting/sw.js');
     const sub=reg?await reg.pushManager.getSubscription():null;
     if(sub){
-      area.innerHTML='<p style="color:#4caf50;font-size:13px">✅ 신청 알림이 설정되어 있습니다.</p>';
+      area.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+        +'<p style="color:#4caf50;font-size:13px;margin:0;">✅ 신청 알림 켜짐</p>'
+        +'<button class="btn" id="push-unsub-btn" onclick="unsubscribePush()" style="font-size:12px;padding:5px 12px;background:#555;color:#fff;border:none;border-radius:6px;cursor:pointer;">🔕 알림 끄기</button>'
+        +'</div>';
     }else{
       area.innerHTML='<button class="btn btn-primary" id="push-setup-btn" onclick="subscribePush()">📱 신청 알림 받기</button>';
     }

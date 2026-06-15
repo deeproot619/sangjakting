@@ -1,8 +1,9 @@
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+self.addEventListener('activate', () => {});
 
 self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : { title: '새 신청', body: '관리자 페이지를 확인해주세요' };
+  let data = { title: '새 신청', body: '관리자 페이지를 확인해주세요' };
+  try { if (e.data) data = e.data.json(); } catch(err) {}
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,

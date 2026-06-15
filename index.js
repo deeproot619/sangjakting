@@ -110,7 +110,8 @@ async function syncApplicationToSB(app){
       // 개별 레코드 저장
       await _sb.from('app_data').upsert({key:'app_'+app.id,value:JSON.stringify(syncApp)});
       // applications 목록: 로컬 덮어쓰기 방지 — Supabase 기준으로 추가만
-      const{data:listData}=await _sb.from('app_data').select('value').eq('key','applications').single();
+      const{data:listData,error:listError}=await _sb.from('app_data').select('value').eq('key','applications').maybeSingle();
+      if(listError)throw listError;
       const remoteList=JSON.parse(listData?.value||'[]');
       if(!remoteList.find(a=>a.id===app.id)){
         remoteList.push({...syncApp,fileData:''});
@@ -129,8 +130,8 @@ async function loadFromSB(){
   if(!_sb)return;
   try{
     showSBLoading(true);
-    // 5초 타임아웃
-    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
+    // 10초 타임아웃 (iOS PWA 첫 로드 시 Supabase 연결 지연 대응)
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000));
     const query=_sb.from('app_data').select('*');
     const{data,error}=await Promise.race([query,timeout]);
     if(error)throw error;
