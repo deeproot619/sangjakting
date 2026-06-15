@@ -197,7 +197,10 @@
           <div id="app-event-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
           <div class="flex-between mt8">
             <div class="card-hd" style="margin-bottom:0;border:none;padding:0;font-size:13px;color:var(--txt2);">일정 선택</div>
-            <button class="btn btn-secondary btn-sm" onclick="openManualEntry()" id="manual-entry-btn">✏️ 수기 입력</button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-danger btn-sm" id="app-reset-btn" onclick="resetScheduleData()" disabled>🗑️ 일정 초기화</button>
+              <button class="btn btn-secondary btn-sm" onclick="openManualEntry()" id="manual-entry-btn">✏️ 수기 입력</button>
+            </div>
           </div>
           <div class="dropdown-wrap mt8">
             <div class="dropdown-trigger" id="app-schedule-btn" onclick="toggleDrop('app-schedule')">

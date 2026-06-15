@@ -3073,6 +3073,35 @@ function appStopPolling(){
   if(_appPollTimer){clearInterval(_appPollTimer);_appPollTimer=null;}
 }
 
+async function resetScheduleData(){
+  if(!_sb){toast('Supabase 연결이 없습니다.','error');return;}
+  if(!currentSchedId){toast('일정을 먼저 선택해주세요.','error');return;}
+  const sched=DB.schedules().find(s=>s.id===currentSchedId);
+  const schedName=sched?sched.displayText:currentSchedId;
+  confirm2(
+    `"${schedName}" 일정의 모든 신청자 데이터를 Supabase에서 완전히 삭제합니다.\n\n삭제 후 복구가 불가능합니다. 계속하시겠습니까?`,
+    async()=>{
+      try{
+        const{data,error}=await _sb.from('app_data').select('key,value').like('key','app_%');
+        if(error)throw error;
+        const targets=(data||[]).filter(r=>{
+          try{return JSON.parse(r.value).scheduleId===currentSchedId;}catch(e){return false;}
+        });
+        if(targets.length===0){toast('삭제할 데이터가 없습니다.','info');return;}
+        await Promise.all(targets.map(r=>_sb.from('app_data').delete().eq('key',r.key)));
+        const filtered=DB.applications().filter(a=>a.scheduleId!==currentSchedId);
+        try{localStorage.setItem('sjt_applications',JSON.stringify(filtered));}catch(e){}
+        DB.savePreviews(DB.previews().filter(p=>p.scheduleId!==currentSchedId));
+        renderApplicants();
+        toast(`${targets.length}건의 데이터가 삭제되었습니다.`,'success');
+      }catch(e){
+        console.warn('resetScheduleData error:',e.message);
+        toast('초기화 중 오류가 발생했습니다.','error');
+      }
+    }
+  );
+}
+
 async function initAdminApplicants(scheduleId){
   setupAdmin('11','admin-applicants');
   appStartPolling();
@@ -3084,11 +3113,14 @@ async function initAdminApplicants(scheduleId){
     const valEl=document.getElementById('app-schedule-val');
     if(valEl&&sched)valEl.textContent=sched.displayText;
     const btn=document.getElementById('manual-entry-btn');
+    const resetBtn=document.getElementById('app-reset-btn');
     if(btn){btn.style.display='';btn.disabled=true;}
+    if(resetBtn)resetBtn.disabled=true;
     const loadEl=document.getElementById('applicants-content');
     if(loadEl)loadEl.innerHTML='<div class="empty-state" style="padding:16px;">불러오는 중...</div>';
     await syncScheduleApplications(scheduleId);
     if(btn)btn.disabled=false;
+    if(resetBtn)resetBtn.disabled=false;
     renderApplicants();
   } else {
     document.getElementById('applicants-content').innerHTML='';
@@ -3138,11 +3170,14 @@ async function selectAppSchedule(id, text){
   document.getElementById('app-schedule-btn').classList.remove('open');
   document.getElementById('app-schedule-menu').classList.remove('open');
   const meBtn=document.getElementById('manual-entry-btn');
+  const resetBtn=document.getElementById('app-reset-btn');
   if(meBtn)meBtn.disabled=true;
+  if(resetBtn)resetBtn.disabled=true;
   const el=document.getElementById('applicants-content');
   if(el)el.innerHTML='<div class="empty-state" style="padding:16px;">불러오는 중...</div>';
   await syncScheduleApplications(id);
   if(meBtn)meBtn.disabled=false;
+  if(resetBtn)resetBtn.disabled=false;
   renderApplicants();
 }
 
