@@ -3667,11 +3667,11 @@ async function subscribePush(){
         subscription:JSON.stringify(sub)
       },{onConflict:'endpoint'});
     }
-    showToast('신청 알림이 설정되었습니다.');
+    toast('신청 알림이 설정되었습니다.','success');
     _pushAreaOn();
   }catch(e){
     console.error('Push subscribe error:',e);
-    showToast('알림 설정 중 오류가 발생했습니다: '+e.message);
+    toast('알림 설정 중 오류가 발생했습니다: '+e.message,'error');
     if(btn)btn.disabled=false;
   }
 }
@@ -3686,11 +3686,11 @@ async function unsubscribePush(){
       await sub.unsubscribe();
       if(_sb)await _sb.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);
     }
-    showToast('알림이 해제되었습니다.');
+    toast('알림이 해제되었습니다.','success');
     _pushAreaOff();
   }catch(e){
     console.error('Push unsubscribe error:',e);
-    showToast('알림 해제 중 오류가 발생했습니다: '+e.message);
+    toast('알림 해제 중 오류가 발생했습니다: '+e.message,'error');
     if(btn)btn.disabled=false;
   }
 }
