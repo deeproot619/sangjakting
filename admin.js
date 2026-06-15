@@ -1953,11 +1953,11 @@ function renderApplicants(){
     else{
       html+='<div class="table-wrap"><table class="data-table"><thead><tr><th>번호</th><th>이름</th><th>생년월일</th><th>직업</th><th>전화번호</th><th>파일</th><th>삭제</th></tr></thead><tbody>';
       gApps.forEach(a=>{
-        const expired=a.fileData&&(now-a.fileSubmittedAt>30*24*60*60*1000);
-        const hasFile=a.fileData&&!expired;
+        const expired=a.fileName&&(now-a.fileSubmittedAt>30*24*60*60*1000);
+        const hasFile=a.fileName&&!expired;
         const fileBtn=hasFile
           ?`<button class="btn btn-secondary btn-sm" onclick="downloadFile('${a.id}')">다운로드</button>`
-          :(a.fileData?'<span class="text-err text-sm">만료됨</span>':'<span class="text-muted text-sm">없음</span>');
+          :(a.fileName?'<span class="text-err text-sm">만료됨</span>':'<span class="text-muted text-sm">없음</span>');
         html+=`<tr><td>${a.number}번</td><td>${a.name}</td><td>${a.birthdate}</td>`
           +`<td>${a.occupation}</td><td>${a.phone}</td><td>${fileBtn}</td>`
           +`<td><button class="btn btn-danger btn-sm" onclick="deleteApplicant('${a.id}','${gender}',${a.number})">삭제</button></td></tr>`;
@@ -1970,12 +1970,21 @@ function renderApplicants(){
   el.innerHTML=fullHtml;
 }
 
-function downloadFile(appId){
-  const app=DB.applications().find(a=>a.id===appId);
-  if(!app||!app.fileData){toast('파일이 없습니다.','error');return;}
-  const link=document.createElement('a');
-  link.href=app.fileData;link.download=app.fileName||'file';
-  link.click();
+async function downloadFile(appId){
+  if(!_sb){toast('Supabase 연결이 없습니다.','error');return;}
+  toast('파일 불러오는 중...','info');
+  try{
+    const{data,error}=await _sb.from('app_data').select('value').eq('key','app_'+appId).maybeSingle();
+    if(error)throw error;
+    if(!data||!JSON.parse(data.value).fileData){toast('파일이 없습니다.','error');return;}
+    const app=JSON.parse(data.value);
+    const link=document.createElement('a');
+    link.href=app.fileData;link.download=app.fileName||'file';
+    link.click();
+  }catch(e){
+    console.error('Download failed:',e);
+    toast('파일 다운로드에 실패했습니다.','error');
+  }
 }
 
 function deleteApplicant(appId,gender,number){
