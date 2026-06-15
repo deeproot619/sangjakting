@@ -3088,7 +3088,9 @@ async function resetScheduleData(){
           try{return JSON.parse(r.value).scheduleId===currentSchedId;}catch(e){return false;}
         });
         if(targets.length===0){toast('삭제할 데이터가 없습니다.','info');return;}
-        await Promise.all(targets.map(r=>_sb.from('app_data').delete().eq('key',r.key)));
+        const keys=targets.map(r=>r.key);
+        const{error:delError}=await _sb.from('app_data').delete().in('key',keys);
+        if(delError)throw delError;
         const filtered=DB.applications().filter(a=>a.scheduleId!==currentSchedId);
         try{localStorage.setItem('sjt_applications',JSON.stringify(filtered));}catch(e){}
         DB.savePreviews(DB.previews().filter(p=>p.scheduleId!==currentSchedId));
@@ -3096,7 +3098,7 @@ async function resetScheduleData(){
         toast(`${targets.length}건의 데이터가 삭제되었습니다.`,'success');
       }catch(e){
         console.warn('resetScheduleData error:',e.message);
-        toast('초기화 오류: '+(e.message||JSON.stringify(e)),'error');
+        toast('초기화 중 오류가 발생했습니다.','error');
       }
     }
   );
