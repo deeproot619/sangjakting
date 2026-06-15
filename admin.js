@@ -15,8 +15,8 @@ function initSB(){
 async function syncToSB(k,v){
   if(!_sb)return;
   try{
+    if(k==='applications')return;
     let syncVal=v;
-    if(k==='applications') syncVal=(v||[]).map(a=>({...a,fileData:''}));
     if(k==='mainMenuDefs') syncVal=(v||[]).map(m=>({...m,bg:''}));
     await _sb.from('app_data').upsert({key:k,value:JSON.stringify(syncVal)});
   }catch(e){console.warn('Supabase sync error:',k,e.message);}
@@ -31,20 +31,11 @@ async function loadFromSB(){
     const{data,error}=await Promise.race([query,timeout]);
     if(error)throw error;
     if(data){
-      // app_* 개별 신청 row와 나머지를 분리
       const appRows=data.filter(row=>row.key.startsWith('app_'));
-      const otherRows=data.filter(row=>!row.key.startsWith('app_'));
+      const otherRows=data.filter(row=>!row.key.startsWith('app_')&&row.key!=='applications');
 
       otherRows.forEach(row=>{
-        if(row.key==='applications'){
-          const local=DB.applications();
-          const remote=JSON.parse(row.value||'[]');
-          const merged=remote.map(rApp=>{
-            const lApp=local.find(l=>l.id===rApp.id);
-            return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
-          });
-          localStorage.setItem('sjt_applications',JSON.stringify(merged));
-        } else if(row.key==='mainMenuDefs'){
+        if(row.key==='mainMenuDefs'){
           const local=DB.get('mainMenuDefs',null);
           const remote=JSON.parse(row.value||'[]');
           const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
@@ -54,26 +45,15 @@ async function loadFromSB(){
         }
       });
 
-      // 개별 신청 row 병합 (누락 방지 + fileData 복원)
-      if(appRows.length>0){
-        const local=DB.applications();
-        let changed=false;
-        appRows.forEach(row=>{
-          try{
-            const rApp=JSON.parse(row.value);
-            const idx=local.findIndex(l=>l.id===rApp.id);
-            if(idx<0){
-              local.push(rApp);
-              changed=true;
-            } else if(rApp.fileData&&!local[idx].fileData){
-              local[idx].fileData=rApp.fileData;
-              if(rApp.fileName)local[idx].fileName=rApp.fileName;
-              changed=true;
-            }
-          }catch(e){}
-        });
-        if(changed)localStorage.setItem('sjt_applications',JSON.stringify(local));
-      }
+      // app_{id} 행만으로 applications 재구성 (단일 정보원, 장부B만 사용)
+      const apps=[];
+      appRows.forEach(row=>{
+        try{
+          const rApp=JSON.parse(row.value);
+          apps.push({...rApp,fileData:''});
+        }catch(e){}
+      });
+      localStorage.setItem('sjt_applications',JSON.stringify(apps));
     }
   }catch(e){
     console.warn('Supabase 로드 실패, localStorage 사용:',e.message);
@@ -90,59 +70,25 @@ async function deleteApplicationFromSB(appId){
   }catch(e){console.warn('Failed to delete app row:',e.message);}
 }
 
-// Supabase ghost app_{id} row 정리 (어느 기기에서 눌러도 동일 결과)
-async function cleanupGhostRows(){
-  if(!_sb){toast('Supabase 연결이 없습니다.','error');return;}
-  try{
-    const{data,error}=await _sb.from('app_data').select('key,value').or('key.eq.applications,key.like.app_%');
-    if(error)throw error;
-    const appsRow=(data||[]).find(r=>r.key==='applications');
-    const authIds=new Set(JSON.parse(appsRow?.value||'[]').map(a=>a.id));
-    const ghostRows=(data||[]).filter(r=>r.key.startsWith('app_')&&!authIds.has(r.key.replace('app_','')));
-    if(ghostRows.length===0){toast('정리할 데이터가 없습니다.','info');return;}
-    await Promise.all(ghostRows.map(r=>_sb.from('app_data').delete().eq('key',r.key)));
-    toast(`정리 완료 — ${ghostRows.length}건의 유령 데이터가 삭제되었습니다.`,'success');
-  }catch(e){
-    console.warn('cleanupGhostRows error:',e.message);
-    toast('정리 중 오류가 발생했습니다.','error');
-  }
-}
-
-// 신청자 데이터만 Supabase에서 타겟 동기화
+// 신청자 데이터만 Supabase에서 타겟 동기화 (app_{id} 단일 정보원)
 async function syncScheduleApplications(scheduleId){
   if(!_sb)return;
   try{
     const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
     const{data,error}=await Promise.race([
-      _sb.from('app_data').select('key,value').or('key.eq.applications,key.like.app_%'),
+      _sb.from('app_data').select('key,value').like('key','app_%'),
       timeout
     ]);
     if(error)throw error;
     if(!data)return;
-    const mainRow=data.find(r=>r.key==='applications');
-    const appRows=data.filter(r=>r.key.startsWith('app_'));
-    let local=DB.applications();
-    if(mainRow){
-      const remote=JSON.parse(mainRow.value||'[]');
-      const merged=remote.map(rApp=>{
-        const lApp=local.find(l=>l.id===rApp.id);
-        return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
-      });
-      local=merged;
-    }
-    appRows.forEach(row=>{
+    const apps=[];
+    data.forEach(row=>{
       try{
         const rApp=JSON.parse(row.value);
-        const idx=local.findIndex(l=>l.id===rApp.id);
-        if(idx<0){
-          local.push(rApp);
-        } else if(rApp.fileData&&!local[idx].fileData){
-          local[idx].fileData=rApp.fileData;
-          if(rApp.fileName)local[idx].fileName=rApp.fileName;
-        }
+        apps.push({...rApp,fileData:''});
       }catch(e){}
     });
-    localStorage.setItem('sjt_applications',JSON.stringify(local));
+    localStorage.setItem('sjt_applications',JSON.stringify(apps));
   }catch(e){
     console.warn('Applications sync failed:',e.message);
   }
@@ -1363,10 +1309,7 @@ function deleteSchedule(id){
     const filteredApps=DB.applications().filter(a=>a.scheduleId!==id);
     try{localStorage.setItem('sjt_applications',JSON.stringify(filteredApps));}catch(e){}
     DB.savePreviews(DB.previews().filter(p=>p.scheduleId!==id));
-    await Promise.all([
-      syncToSB('applications',filteredApps),
-      ...removedApps.map(a=>deleteApplicationFromSB(a.id))
-    ]);
+    await Promise.all(removedApps.map(a=>deleteApplicationFromSB(a.id)));
     toast('일정이 삭제되었습니다.','success');
     initAdminSchedules(1);
   });
@@ -1762,10 +1705,7 @@ function deleteEvtSchedule(id){
     const filteredApps=DB.applications().filter(a=>a.scheduleId!==id);
     try{localStorage.setItem('sjt_applications',JSON.stringify(filteredApps));}catch(e){}
     DB.savePreviews(DB.previews().filter(p=>p.scheduleId!==id));
-    await Promise.all([
-      syncToSB('applications',filteredApps),
-      ...removedApps.map(a=>deleteApplicationFromSB(a.id))
-    ]);
+    await Promise.all(removedApps.map(a=>deleteApplicationFromSB(a.id)));
     toast('일정이 삭제되었습니다.','success');
     renderEvtSchedTable();
   });
@@ -1932,7 +1872,6 @@ function saveManualEntry(){
   closeManualEntry();
   renderApplicants();
   toast('수기 입력이 완료되었습니다.','success');
-  syncToSB('applications',apps);
   if(_sb)_sb.from('app_data').upsert({key:'app_'+app.id,value:JSON.stringify(app)}).catch(e=>console.warn('Manual entry sync failed:',e.message));
 }
 
@@ -1993,10 +1932,7 @@ function deleteApplicant(appId,gender,number){
     try{localStorage.setItem('sjt_applications',JSON.stringify(filtered));}catch(e){}
     const sched=currentSchedId;
     DB.savePreviews(DB.previews().filter(p=>!(p.scheduleId===sched&&p.gender===gender&&p.number===number)));
-    await Promise.all([
-      syncToSB('applications',filtered),
-      deleteApplicationFromSB(appId)
-    ]);
+    await deleteApplicationFromSB(appId);
     toast('신청자 정보가 삭제되었습니다.','success');
     document.getElementById('applicants-content').innerHTML='';
     renderApplicants();

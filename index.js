@@ -18,39 +18,29 @@ function initSB(){
 async function syncToSB(k,v){
   if(!_sb)return;
   try{
+    if(k==='applications')return;
     let syncVal=v;
-    if(k==='applications') syncVal=(v||[]).map(a=>({...a,fileData:''}));
     if(k==='mainMenuDefs') syncVal=(v||[]).map(m=>({...m,bg:''}));
     await _sb.from('app_data').upsert({key:k,value:JSON.stringify(syncVal)});
   }catch(e){console.warn('Supabase sync error:',k,e.message);}
 }
 
-// 특정 일정의 신청자 데이터만 Supabase에서 타겟 동기화
+// 신청자 데이터를 app_{id} 행만으로 Supabase에서 동기화 (단일 정보원)
 async function syncScheduleApplications(scheduleId){
   if(!_sb)return;
   try{
     const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000));
     const{data,error}=await Promise.race([
-      _sb.from('app_data').select('key,value').or('key.eq.applications,key.like.app_%'),
+      _sb.from('app_data').select('key,value').like('key','app_%'),
       timeout
     ]);
     if(error)throw error;
     if(!data)return;
-    const mainRow=data.find(r=>r.key==='applications');
-    const appRows=data.filter(r=>r.key.startsWith('app_'));
-    let local=DB.applications();
-    if(mainRow){
-      const remote=JSON.parse(mainRow.value||'[]');
-      const merged=remote.map(rApp=>({...rApp,fileData:''}));
-      local=merged;
-    }
-    appRows.forEach(row=>{
-      try{
-        const rApp=JSON.parse(row.value);
-        if(!local.find(l=>l.id===rApp.id))local.push({...rApp,fileData:''});
-      }catch(e){}
+    const apps=[];
+    data.forEach(row=>{
+      try{apps.push({...JSON.parse(row.value),fileData:''});}catch(e){}
     });
-    localStorage.setItem('sjt_applications',JSON.stringify(local));
+    localStorage.setItem('sjt_applications',JSON.stringify(apps));
   }catch(e){
     console.warn('Applications sync failed:',e.message);
   }
@@ -98,21 +88,23 @@ async function syncSettingsFromSB(){
   }
 }
 
-// 신청 1건을 개별 row로 저장 (race condition 방지)
+// 신청 1건을 개별 row로 저장 후 중복 충돌 확인 (race condition 방지)
 async function syncApplicationToSB(app){
   if(!_sb)return false;
   const syncApp={...app};
   for(let attempt=0;attempt<3;attempt++){
     try{
-      // 개별 레코드 저장
       await _sb.from('app_data').upsert({key:'app_'+app.id,value:JSON.stringify(syncApp)});
-      // applications 목록: 로컬 덮어쓰기 방지 — Supabase 기준으로 추가만
-      const{data:listData,error:listError}=await _sb.from('app_data').select('value').eq('key','applications').maybeSingle();
-      if(listError)throw listError;
-      const remoteList=JSON.parse(listData?.value||'[]');
-      if(!remoteList.find(a=>a.id===app.id)){
-        remoteList.push({...syncApp,fileData:''});
-        await _sb.from('app_data').upsert({key:'applications',value:JSON.stringify(remoteList)});
+      // 저장 후 동일 일정+성별+번호가 다른 id로 존재하면 내 row를 취소 (race condition 패배)
+      const{data:allRows}=await _sb.from('app_data').select('key,value').like('key','app_%');
+      const conflict=(allRows||[]).find(r=>{
+        if(r.key==='app_'+app.id)return false;
+        try{const o=JSON.parse(r.value);return o.scheduleId===app.scheduleId&&o.gender===app.gender&&o.number===app.number;}
+        catch(e){return false;}
+      });
+      if(conflict){
+        await _sb.from('app_data').delete().eq('key','app_'+app.id);
+        return 'conflict';
       }
       return true;
     }catch(e){
@@ -134,14 +126,10 @@ async function loadFromSB(){
     if(error)throw error;
     if(data){
       const appRows=data.filter(row=>row.key.startsWith('app_'));
-      const otherRows=data.filter(row=>!row.key.startsWith('app_'));
+      const otherRows=data.filter(row=>!row.key.startsWith('app_')&&row.key!=='applications');
 
       otherRows.forEach(row=>{
-        if(row.key==='applications'){
-          const remote=JSON.parse(row.value||'[]');
-          const merged=remote.map(rApp=>({...rApp,fileData:''}));
-          localStorage.setItem('sjt_applications',JSON.stringify(merged));
-        } else if(row.key==='mainMenuDefs'){
+        if(row.key==='mainMenuDefs'){
           const local=DB.get('mainMenuDefs',null);
           const remote=JSON.parse(row.value||'[]');
           const merged=local?remote.map((d,i)=>({...d,bg:local[i]?.bg||''})):remote;
@@ -166,18 +154,12 @@ async function loadFromSB(){
         }
       });
 
-      // 개별 신청 row(app_*) 병합 — race condition 방지용으로 저장된 항목들
-      if(appRows.length>0){
-        const local=DB.applications();
-        let changed=false;
-        appRows.forEach(row=>{
-          try{
-            const rApp=JSON.parse(row.value);
-            if(!local.find(l=>l.id===rApp.id)){local.push({...rApp,fileData:''});changed=true;}
-          }catch(e){}
-        });
-        if(changed)localStorage.setItem('sjt_applications',JSON.stringify(local));
-      }
+      // app_{id} 행만으로 applications 재구성 (단일 정보원, 장부B만 사용)
+      const apps=[];
+      appRows.forEach(row=>{
+        try{apps.push({...JSON.parse(row.value),fileData:''});}catch(e){}
+      });
+      localStorage.setItem('sjt_applications',JSON.stringify(apps));
     }
   }catch(e){
     console.warn('Supabase 로드 실패, localStorage 사용:',e.message);
@@ -932,9 +914,22 @@ async function submitApplication(){
 
   const synced=await syncApplicationToSB(app);
 
-  btn.style.display='none';
   const msg=document.getElementById('submitMsg');
   const sched=DB.schedules().find(s=>s.id===schedId);
+
+  if(synced==='conflict'){
+    // race condition 패배 — 다른 사람이 같은 번호를 먼저 선점함
+    const filtered=DB.applications().filter(a=>a.id!==app.id);
+    try{localStorage.setItem('sjt_applications',JSON.stringify(filtered.map(a=>({...a,fileData:''}))));}catch(e){}
+    await syncScheduleApplications(schedId);
+    renderNumberGrid();
+    toast('선택한 번호가 이미 신청되었습니다. 다른 번호를 선택해주세요.','error');
+    btn.disabled=false;
+    btn.textContent='예약 신청하기';
+    return;
+  }
+
+  btn.style.display='none';
   if(synced){
     // 신청 완료 즉시 번호 그리드 갱신하여 해당 번호 비활성화
     renderNumberGrid();
