@@ -3107,6 +3107,7 @@ async function resetScheduleData(){
 async function initAdminApplicants(scheduleId){
   setupAdmin('11','admin-applicants');
   appStartPolling();
+  await syncSettingsFromSB();
   renderAppEventTabs();
   buildAppScheduleMenu();
   if(scheduleId){
