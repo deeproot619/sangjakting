@@ -41,16 +41,13 @@ async function syncScheduleApplications(scheduleId){
     let local=DB.applications();
     if(mainRow){
       const remote=JSON.parse(mainRow.value||'[]');
-      const merged=remote.map(rApp=>{
-        const lApp=local.find(l=>l.id===rApp.id);
-        return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
-      });
+      const merged=remote.map(rApp=>({...rApp,fileData:''}));
       local=merged;
     }
     appRows.forEach(row=>{
       try{
         const rApp=JSON.parse(row.value);
-        if(!local.find(l=>l.id===rApp.id))local.push(rApp);
+        if(!local.find(l=>l.id===rApp.id))local.push({...rApp,fileData:''});
       }catch(e){}
     });
     localStorage.setItem('sjt_applications',JSON.stringify(local));
@@ -141,12 +138,8 @@ async function loadFromSB(){
 
       otherRows.forEach(row=>{
         if(row.key==='applications'){
-          const local=DB.applications();
           const remote=JSON.parse(row.value||'[]');
-          const merged=remote.map(rApp=>{
-            const lApp=local.find(l=>l.id===rApp.id);
-            return lApp?{...rApp,fileData:lApp.fileData||'',fileName:lApp.fileName||''}:rApp;
-          });
+          const merged=remote.map(rApp=>({...rApp,fileData:''}));
           localStorage.setItem('sjt_applications',JSON.stringify(merged));
         } else if(row.key==='mainMenuDefs'){
           const local=DB.get('mainMenuDefs',null);
@@ -180,7 +173,7 @@ async function loadFromSB(){
         appRows.forEach(row=>{
           try{
             const rApp=JSON.parse(row.value);
-            if(!local.find(l=>l.id===rApp.id)){local.push(rApp);changed=true;}
+            if(!local.find(l=>l.id===rApp.id)){local.push({...rApp,fileData:''});changed=true;}
           }catch(e){}
         });
         if(changed)localStorage.setItem('sjt_applications',JSON.stringify(local));
@@ -923,7 +916,7 @@ async function submitApplication(){
   };
   const apps=DB.applications();
   apps.push(app);
-  try{localStorage.setItem('sjt_applications',JSON.stringify(apps));}catch(e){}
+  try{localStorage.setItem('sjt_applications',JSON.stringify(apps.map(a=>({...a,fileData:''}))));}catch(e){}
 
   // 자기소개서 저장
   const pvQs=getScheduleQuestions(app.scheduleId);
