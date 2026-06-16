@@ -19,6 +19,19 @@ async function syncToSB(k,v){
     if(k==='applications')return;
     let syncVal=v;
     if(k==='mainMenuDefs') syncVal=(v||[]).map(m=>({...m,bg:''}));
+    if(k==='schedules'){
+      const{data:sbData}=await _sb.from('app_data').select('value').eq('key','schedules').maybeSingle();
+      const remote=sbData?JSON.parse(sbData.value||'[]'):[];
+      const remoteIds=new Set(remote.map(s=>s.id));
+      const localOnlyNew=(v||[]).filter(s=>!remoteIds.has(s.id));
+      if(localOnlyNew.length>0){
+        const localIds=new Set((v||[]).map(s=>s.id));
+        const remoteOnly=remote.filter(s=>!localIds.has(s.id));
+        syncVal=[...(v||[]),...remoteOnly];
+        syncVal.sort((a,b)=>b.createdAt-a.createdAt);
+        syncVal.forEach((s,i)=>s.order=syncVal.length-i);
+      }
+    }
     await _sb.from('app_data').upsert({key:k,value:JSON.stringify(syncVal)});
   }catch(e){
     console.warn('Supabase sync error:',k,e.message);
