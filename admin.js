@@ -12,6 +12,7 @@ function initSB(){
   catch(e){console.warn('Supabase init failed:',e);}
 }
 
+let _syncWarnTimer=null;
 async function syncToSB(k,v){
   if(!_sb)return;
   try{
@@ -19,7 +20,13 @@ async function syncToSB(k,v){
     let syncVal=v;
     if(k==='mainMenuDefs') syncVal=(v||[]).map(m=>({...m,bg:''}));
     await _sb.from('app_data').upsert({key:k,value:JSON.stringify(syncVal)});
-  }catch(e){console.warn('Supabase sync error:',k,e.message);}
+  }catch(e){
+    console.warn('Supabase sync error:',k,e.message);
+    if(!_syncWarnTimer){
+      toast('서버 동기화 실패 — 이 기기에만 저장됐습니다. 다른 기기에서 보이지 않을 수 있습니다.','error');
+      _syncWarnTimer=setTimeout(()=>{_syncWarnTimer=null;},10000);
+    }
+  }
 }
 
 async function loadFromSB(){
